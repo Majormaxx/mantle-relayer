@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  relayer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - MANTLE_RPC_URL=${MANTLE_RPC_URL}
+      - MANTLE_CHAIN_ID=${MANTLE_CHAIN_ID:-5003}
+      - RELAYER_HUB_ADDRESS=${RELAYER_HUB_ADDRESS}
+      - PAYMASTER_FACTORY_ADDRESS=${PAYMASTER_FACTORY_ADDRESS}
+      - RELAYER_PRIVATE_KEY=${RELAYER_PRIVATE_KEY}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - RATE_LIMIT_MAX_PER_MINUTE=${RATE_LIMIT_MAX_PER_MINUTE:-100}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health/live"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  # Optional: Redis for production queue (uncomment when needed)
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   restart: unless-stopped
+
+# volumes:
+#   redis_data:
