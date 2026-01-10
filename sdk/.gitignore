@@ -1,12 +1,8 @@
-spec_1_mantle_gas_less_relayer.md
-PHASE_1_IMPLEMENTATION_GUIDE.md
-
 # Dependencies
 node_modules/
 
 # Build output
 dist/
-build/
 
 # Environment files
 .env
@@ -31,6 +27,11 @@ npm-debug.log*
 # Test coverage
 coverage/
 
-# Misc
+# Package manager
 *.tgz
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Misc
 .cache/
