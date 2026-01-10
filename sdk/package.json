@@ -1,0 +1,46 @@
+{
+  "name": "@mantle-relayer/sdk",
+  "version": "0.1.0",
+  "description": "SDK for gasless transactions on Mantle Network",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest",
+    "lint": "eslint src --ext .ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mantle",
+    "gasless",
+    "meta-transaction",
+    "l2",
+    "ethereum",
+    "eip-712"
+  ],
+  "author": "Mantle Gas-Less Relayer Team",
+  "license": "MIT",
+  "peerDependencies": {
+    "ethers": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.28",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.55.0",
+    "ethers": "^6.16.0",
+    "typescript": "^5.9.3",
+    "vitest": "^1.1.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/mantle-relayer"
+  }
+}
