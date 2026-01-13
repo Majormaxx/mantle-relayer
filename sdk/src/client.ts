@@ -50,9 +50,10 @@ export interface ClientConfig {
 }
 
 /**
- * Paymaster contract ABI (minimal for read operations).
+ * Paymaster contract ABI (for read and admin operations).
  */
 const PAYMASTER_ABI = [
+  // Read functions
   'function nonces(address user) view returns (uint256)',
   'function getBalance() view returns (uint256)',
   'function owner() view returns (address)',
@@ -62,6 +63,17 @@ const PAYMASTER_ABI = [
   'function getSpendingLimitStatus() view returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)',
   'function getAnalytics() view returns (uint256,uint256,uint256)',
   'function DOMAIN_SEPARATOR() view returns (bytes32)',
+  'function isContractWhitelisted(address) view returns (bool)',
+  'function isFunctionWhitelisted(address, bytes4) view returns (bool)',
+  // Admin write functions
+  'function addWhitelistedContract(address contractAddress) external',
+  'function removeWhitelistedContract(address contractAddress) external',
+  'function addWhitelistedFunction(address contractAddress, bytes4 selector) external',
+  'function removeWhitelistedFunction(address contractAddress, bytes4 selector) external',
+  'function pause() external',
+  'function unpause() external',
+  'function withdraw(uint256 amount) external',
+  'function setSpendingLimits(uint256 perTx, uint256 daily, uint256 monthly, uint256 global) external',
 ];
 
 /**
@@ -372,5 +384,215 @@ export class MantleRelayerClient {
     } catch {
       return false;
     }
+  }
+
+  // ============================================
+  // Admin Functions (require signer with owner privileges)
+  // ============================================
+
+  /**
+   * Deposit MNT into the Paymaster to fund gas sponsorship.
+   * @param signer - Signer with funds to deposit
+   * @param paymasterAddress - Paymaster contract address
+   * @param amount - Amount in wei to deposit
+   */
+  async deposit(
+    signer: Signer,
+    paymasterAddress: string,
+    amount: bigint
+  ): Promise<{ txHash: string }> {
+    const tx = await signer.sendTransaction({
+      to: paymasterAddress,
+      value: amount,
+    });
+    const receipt = await tx.wait();
+    return { txHash: receipt?.hash ?? tx.hash };
+  }
+
+  /**
+   * Add a contract to the whitelist (owner only).
+   * @param signer - Owner signer
+   * @param paymasterAddress - Paymaster contract address
+   * @param contractAddress - Contract to whitelist
+   */
+  async addWhitelistedContract(
+    signer: Signer,
+    paymasterAddress: string,
+    contractAddress: string
+  ): Promise<{ txHash: string }> {
+    const contract = new Contract(paymasterAddress, PAYMASTER_ABI, signer);
+    const tx = await contract.getFunction('addWhitelistedContract')(contractAddress);
+    const receipt = await tx.wait();
+    return { txHash: receipt?.hash ?? tx.hash };
+  }
+
+  /**
+   * Remove a contract from the whitelist (owner only).
+   * @param signer - Owner signer
+   * @param paymasterAddress - Paymaster contract address
+   * @param contractAddress - Contract to remove
+   */
+  async removeWhitelistedContract(
+    signer: Signer,
+    paymasterAddress: string,
+    contractAddress: string
+  ): Promise<{ txHash: string }> {
+    const contract = new Contract(paymasterAddress, PAYMASTER_ABI, signer);
+    const tx = await contract.getFunction('removeWhitelistedContract')(contractAddress);
+    const receipt = await tx.wait();
+    return { txHash: receipt?.hash ?? tx.hash };
+  }
+
+  /**
+   * Add a function to the whitelist (owner only).
+   * @param signer - Owner signer
+   * @param paymasterAddress - Paymaster contract address
+   * @param contractAddress - Target contract
+   * @param functionSignature - Function signature (e.g., "transfer(address,uint256)")
+   */
+  async addWhitelistedFunction(
+    signer: Signer,
+    paymasterAddress: string,
+    contractAddress: string,
+    functionSignature: string
+  ): Promise<{ txHash: string }> {
+    // Compute function selector from signature
+    const { id } = await import('ethers');
+    const selector = id(functionSignature).slice(0, 10);
+    
+    const contract = new Contract(paymasterAddress, PAYMASTER_ABI, signer);
+    const tx = await contract.getFunction('addWhitelistedFunction')(contractAddress, selector);
+    const receipt = await tx.wait();
+    return { txHash: receipt?.hash ?? tx.hash };
+  }
+
+  /**
+   * Remove a function from the whitelist (owner only).
+   * @param signer - Owner signer
+   * @param paymasterAddress - Paymaster contract address
+   * @param contractAddress - Target contract
+   * @param functionSignature - Function signature to remove
+   */
+  async removeWhitelistedFunction(
+    signer: Signer,
+    paymasterAddress: string,
+    contractAddress: string,
+    functionSignature: string
+  ): Promise<{ txHash: string }> {
+    const { id } = await import('ethers');
+    const selector = id(functionSignature).slice(0, 10);
+    
+    const contract = new Contract(paymasterAddress, PAYMASTER_ABI, signer);
+    const tx = await contract.getFunction('removeWhitelistedFunction')(contractAddress, selector);
+    const receipt = await tx.wait();
+    return { txHash: receipt?.hash ?? tx.hash };
+  }
+
+  /**
+   * Check if a contract is whitelisted.
+   * @param paymasterAddress - Paymaster contract address
+   * @param contractAddress - Contract to check
+   */
+  async isContractWhitelisted(
+    paymasterAddress: string,
+    contractAddress: string
+  ): Promise<boolean> {
+    if (!this.provider) {
+      throw new ConfigurationError('RPC URL required for direct contract queries');
+    }
+    const contract = new Contract(paymasterAddress, PAYMASTER_ABI, this.provider);
+    return await contract.getFunction('isContractWhitelisted')(contractAddress);
+  }
+
+  /**
+   * Check if a function is whitelisted.
+   * @param paymasterAddress - Paymaster contract address
+   * @param contractAddress - Target contract
+   * @param functionSelector - 4-byte function selector (e.g., "0xa9059cbb")
+   */
+  async isFunctionWhitelisted(
+    paymasterAddress: string,
+    contractAddress: string,
+    functionSelector: string
+  ): Promise<boolean> {
+    if (!this.provider) {
+      throw new ConfigurationError('RPC URL required for direct contract queries');
+    }
+    const contract = new Contract(paymasterAddress, PAYMASTER_ABI, this.provider);
+    return await contract.getFunction('isFunctionWhitelisted')(contractAddress, functionSelector);
+  }
+
+  /**
+   * Pause the Paymaster (owner only, emergency stop).
+   * @param signer - Owner signer
+   * @param paymasterAddress - Paymaster contract address
+   */
+  async pause(
+    signer: Signer,
+    paymasterAddress: string
+  ): Promise<{ txHash: string }> {
+    const contract = new Contract(paymasterAddress, PAYMASTER_ABI, signer);
+    const tx = await contract.getFunction('pause')();
+    const receipt = await tx.wait();
+    return { txHash: receipt?.hash ?? tx.hash };
+  }
+
+  /**
+   * Unpause the Paymaster (owner only).
+   * @param signer - Owner signer
+   * @param paymasterAddress - Paymaster contract address
+   */
+  async unpause(
+    signer: Signer,
+    paymasterAddress: string
+  ): Promise<{ txHash: string }> {
+    const contract = new Contract(paymasterAddress, PAYMASTER_ABI, signer);
+    const tx = await contract.getFunction('unpause')();
+    const receipt = await tx.wait();
+    return { txHash: receipt?.hash ?? tx.hash };
+  }
+
+  /**
+   * Withdraw MNT from the Paymaster (owner only).
+   * @param signer - Owner signer
+   * @param paymasterAddress - Paymaster contract address
+   * @param amount - Amount in wei to withdraw
+   */
+  async withdraw(
+    signer: Signer,
+    paymasterAddress: string,
+    amount: bigint
+  ): Promise<{ txHash: string }> {
+    const contract = new Contract(paymasterAddress, PAYMASTER_ABI, signer);
+    const tx = await contract.getFunction('withdraw')(amount);
+    const receipt = await tx.wait();
+    return { txHash: receipt?.hash ?? tx.hash };
+  }
+
+  /**
+   * Set spending limits (owner only).
+   * @param signer - Owner signer
+   * @param paymasterAddress - Paymaster contract address
+   * @param limits - Spending limit configuration
+   */
+  async setSpendingLimits(
+    signer: Signer,
+    paymasterAddress: string,
+    limits: {
+      perTransaction: bigint;
+      daily: bigint;
+      monthly: bigint;
+      global: bigint;
+    }
+  ): Promise<{ txHash: string }> {
+    const contract = new Contract(paymasterAddress, PAYMASTER_ABI, signer);
+    const tx = await contract.getFunction('setSpendingLimits')(
+      limits.perTransaction,
+      limits.daily,
+      limits.monthly,
+      limits.global
+    );
+    const receipt = await tx.wait();
+    return { txHash: receipt?.hash ?? tx.hash };
   }
 }
