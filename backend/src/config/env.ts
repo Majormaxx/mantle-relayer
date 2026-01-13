@@ -28,6 +28,10 @@ const envSchema = z.object({
   // Redis (optional for development)
   REDIS_URL: z.string().url().optional(),
 
+  // Supabase (optional for transaction logging)
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_SERVICE_KEY: z.string().optional(),
+
   // Rate Limiting
   RATE_LIMIT_MAX_PER_MINUTE: z.string().transform(Number).default('100'),
   RATE_LIMIT_MAX_PER_USER: z.string().transform(Number).default('20'),

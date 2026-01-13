@@ -4,34 +4,21 @@ node_modules/
 # Build output
 dist/
 
-# Environment files
-.env
-.env.local
-.env.*.local
-
 # IDE
-.idea/
 .vscode/
-*.swp
-*.swo
+.idea/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Logs
-logs/
-*.log
-npm-debug.log*
-
 # Test coverage
 coverage/
 
-# Package manager
-*.tgz
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
+# Logs
+*.log
+npm-debug.log*
 
-# Misc
-.cache/
+# Environment
+.env
+.env.local

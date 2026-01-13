@@ -1,46 +1,56 @@
 {
   "name": "@mantle-relayer/sdk",
-  "version": "0.1.0",
-  "description": "SDK for gasless transactions on Mantle Network",
+  "version": "1.0.0",
+  "description": "TypeScript SDK for Mantle Gas-Less Relayer - securely sign and submit meta-transactions",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
-    "build": "tsc",
     "dev": "tsc --watch",
+    "build": "tsc",
     "test": "vitest",
+    "test:unit": "vitest run --dir test/unit",
+    "test:integration": "vitest run --dir test/integration",
     "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write 'src/**/*.ts'",
+    "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "ethers": "^6.13.4",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@typescript-eslint/eslint-plugin": "^8.18.1",
+    "@typescript-eslint/parser": "^8.18.1",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   },
   "keywords": [
     "mantle",
     "gasless",
+    "relayer",
     "meta-transaction",
-    "l2",
-    "ethereum",
-    "eip-712"
+    "eip-712",
+    "paymaster"
   ],
-  "author": "Mantle Gas-Less Relayer Team",
-  "license": "MIT",
-  "peerDependencies": {
-    "ethers": "^6.0.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.19.28",
-    "@typescript-eslint/eslint-plugin": "^6.15.0",
-    "@typescript-eslint/parser": "^6.15.0",
-    "eslint": "^8.55.0",
-    "ethers": "^6.16.0",
-    "typescript": "^5.9.3",
-    "vitest": "^1.1.0"
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/your-org/mantle-relayer"
-  }
+  "license": "MIT"
 }

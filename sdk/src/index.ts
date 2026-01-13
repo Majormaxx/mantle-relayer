@@ -1,106 +1,95 @@
-// Main SDK entry point
-import { Provider } from 'ethers';
-import { PaymasterClient } from './clients/PaymasterClient.js';
-import { RelayerClient } from './clients/RelayerClient.js';
-import type { SDKConfig } from './types/index.js';
-
-// Re-export types for convenience
-export * from './types/index.js';
-export { PaymasterClient } from './clients/PaymasterClient.js';
-export { RelayerClient } from './clients/RelayerClient.js';
-
 /**
- * Main SDK class for Mantle Gas-Less Relayer
+ * Mantle Gas-Less Relayer SDK
+ * 
+ * TypeScript SDK for securely signing and submitting gasless meta-transactions.
  * 
  * @example
  * ```typescript
- * import { MantleGaslessSDK } from '@mantle-relayer/sdk';
- * import { ethers } from 'ethers';
+ * import { MantleRelayerClient } from '@mantle-relayer/sdk';
+ * import { Wallet } from 'ethers';
  * 
- * const provider = new ethers.BrowserProvider(window.ethereum);
- * const sdk = new MantleGaslessSDK({
- *   relayerUrl: 'https://relayer.mantle-gasless.xyz',
- *   factoryAddress: '0x4F5f7aBa739cB54BEdc6b7a6B9615DAeDc3A26A4',
- *   chainId: 5003
- * });
+ * // Initialize client
+ * const client = MantleRelayerClient.forTestnet('https://relay.example.com');
  * 
- * // Get a Paymaster client
- * const paymaster = sdk.getPaymaster('0xPaymasterAddress');
+ * // Build and sign a transaction
+ * const signer = new Wallet(privateKey);
+ * const signedTx = await client.buildTransaction()
+ *   .setPaymaster(paymasterAddress)
+ *   .setTarget(contractAddress)
+ *   .setCallData(encodedFunctionCall)
+ *   .setGasLimit(100000n)
+ *   .sign(signer);
  * 
- * // Execute gasless transaction
- * const result = await paymaster.executeGasless(
- *   userSigner,
- *   '0xTokenAddress',
- *   'transfer(address,uint256)',
- *   [recipient, amount]
- * );
+ * // Submit to relayer
+ * const result = await client.relay(paymasterAddress, signedTx);
+ * console.log('Transaction hash:', result.txHash);
  * ```
+ * 
+ * @packageDocumentation
  */
-export class MantleGaslessSDK {
-  private provider: Provider;
-  private config: Required<SDKConfig>;
-  private relayerClient: RelayerClient;
 
-  /**
-   * Create a new SDK instance
-   * 
-   * @param provider - Ethers provider instance
-   * @param config - SDK configuration
-   */
-  constructor(provider: Provider, config: SDKConfig) {
-    this.provider = provider;
-    this.config = {
-      ...config,
-      chainId: config.chainId || 5003, // Default to Mantle Sepolia
-      timeout: config.timeout || 30000, // 30 seconds default
-    };
-    this.relayerClient = new RelayerClient(config.relayerUrl, this.config.timeout);
-  }
+// Main client
+export { MantleRelayerClient, type ClientConfig } from './client.js';
 
-  /**
-   * Get a Paymaster client for a specific address
-   * 
-   * @param paymasterAddress - Address of the Paymaster contract
-   * @param signer - Optional signer for admin functions
-   * @returns PaymasterClient instance
-   */
-  getPaymaster(paymasterAddress: string, signer?: any): PaymasterClient {
-    return new PaymasterClient(
-      this.provider,
-      paymasterAddress,
-      this.config.chainId,
-      this.config.relayerUrl,
-      signer
-    );
-  }
+// Transaction builder
+export { MetaTransactionBuilder, type BuilderConfig } from './builder.js';
 
-  /**
-   * Check if relayer backend is healthy
-   * 
-   * @returns Promise<boolean> true if healthy
-   */
-  async isRelayerHealthy(): Promise<boolean> {
-    return await this.relayerClient.health();
-  }
+// Signing utilities
+export {
+  signMetaTransaction,
+  hashMetaTransaction,
+  computeDomainSeparator,
+  computeTypedDataHash,
+  getEIP712Domain,
+  getEIP712Types,
+  META_TX_TYPEHASH,
+} from './signer.js';
 
-  /**
-   * Get the relayer URL
-   */
-  getRelayerUrl(): string {
-    return this.config.relayerUrl;
-  }
+// Types
+export type {
+  MetaTransaction,
+  SignedMetaTransaction,
+  SpendingLimit,
+  PaymasterAnalytics,
+  PaymasterInfo,
+  CanExecuteResult,
+  ExecuteResult,
+  CostEstimate,
+  RelayResult,
+  ValidateResult,
+} from './types/contracts.js';
+export { TransactionStatus } from './types/contracts.js';
 
-  /**
-   * Get the factory address
-   */
-  getFactoryAddress(): string {
-    return this.config.factoryAddress;
-  }
+// Errors
+export {
+  RelayerSDKError,
+  ValidationError,
+  SigningError,
+  NetworkError,
+  RelayError,
+  TransactionExpiredError,
+  InsufficientBalanceError,
+  InvalidNonceError,
+  NotWhitelistedError,
+  ConfigurationError,
+} from './errors/index.js';
 
-  /**
-   * Get the chain ID
-   */
-  getChainId(): number {
-    return this.config.chainId;
-  }
-}
+// Validation utilities
+export {
+  isAddress,
+  isHexString,
+  isSignature,
+  isMetaTransaction,
+  isSignedMetaTransaction,
+  isDeadlineValid,
+  isTransactionHash,
+} from './validation/guards.js';
+
+// Constants
+export {
+  NETWORKS,
+  ERROR_CODES,
+  ERROR_MESSAGES,
+  DEFAULTS,
+  type NetworkName,
+} from './utils/constants.js';
