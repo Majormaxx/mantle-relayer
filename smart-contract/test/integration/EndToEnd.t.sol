@@ -298,32 +298,30 @@ contract EndToEndIntegrationTest is Test {
         vm.warp(block.timestamp + 1 days);
         
         // Execute transaction after reset - create fresh signature with new deadline
-        // CRITICAL: Must recalculate deadline AFTER vm.warp() 
-        {
-            uint256 nonce = paymaster.nonces(user1);
-            uint256 deadline = block.timestamp + 1 hours;
-            bytes memory sig = signMetaTransaction(
-                user1PrivateKey,
-                address(paymaster),
-                address(mockTarget),
-                data,
-                gasLimit,
-                nonce,
-                deadline
-            );
-            
-            vm.prank(relayer);
-            (bool success, ) = paymaster.executeMetaTransaction(
-                user1,
-                address(mockTarget),
-                data,
-                gasLimit,
-                nonce,
-                deadline,
-                sig
-            );
-            assertTrue(success);
-        }
+        // CRITICAL: Use vm.getBlockTimestamp() instead of block.timestamp to avoid via-ir caching
+        uint256 nonce2 = paymaster.nonces(user1);
+        uint256 deadline2 = vm.getBlockTimestamp() + 1 hours;
+        bytes memory sig2 = signMetaTransaction(
+            user1PrivateKey,
+            address(paymaster),
+            address(mockTarget),
+            data,
+            gasLimit,
+            nonce2,
+            deadline2
+        );
+        
+        vm.prank(relayer);
+        (bool success2, ) = paymaster.executeMetaTransaction(
+            user1,
+            address(mockTarget),
+            data,
+            gasLimit,
+            nonce2,
+            deadline2,
+            sig2
+        );
+        assertTrue(success2);
     }
     
     /// @notice Test low balance alert mechanism
