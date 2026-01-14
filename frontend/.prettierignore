@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+
+# Cache
+.cache/
+.eslintcache
+
+# Package manager files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Generated files
+*.min.js
+*.min.css
+
+# Public assets
+public/
+
+# IDE
+.idea/
+.vscode/
+
+# Environment files
+.env*
+
+# TypeScript build info
+*.tsbuildinfo
+next-env.d.ts
