@@ -1,4 +1,6 @@
 // Layout component exports
-// Header, Sidebar, Footer, etc.
-
-export {};
+export { MarketingHeader } from './MarketingHeader';
+export { DashboardSidebar } from './DashboardSidebar';
+export { MobileBottomNav } from './MobileBottomNav';
+export { DashboardTopBar } from './DashboardTopBar';
+export { Footer } from './Footer';
