@@ -1,0 +1,124 @@
+# Smart Contracts
+
+Technical documentation for the Mantle Gasless Relayer smart contracts.
+
+## Overview
+
+The relayer system consists of three main contracts:
+
+1. **RelayerHub** - Entry point for meta-transactions
+2. **PaymasterFactory** - Deploys new paymaster contracts
+3. **Paymaster** - Individual sponsor accounts
+
+## Contract Addresses
+
+### Mantle Sepolia (Testnet)
+
+| Contract | Address |
+|----------|---------|
+| RelayerHub | `0xA5dd225Beb2Ec0009Fe143eb0B9309Ba07d23737` |
+| PaymasterFactory | `0x4F5f7aBa739cB54BEdc6b7a6B9615DAeDc3A26A4` |
+
+<Callout type="note">
+  Mainnet addresses will be published after mainnet launch.
+</Callout>
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Mantle Network                          │
+│                                                              │
+│  ┌───────────────┐       ┌──────────────────────────────┐   │
+│  │               │       │        PaymasterFactory       │   │
+│  │  RelayerHub   │       │                              │   │
+│  │               │       │  - createPaymaster()         │   │
+│  │ - execute()   │       │  - getPaymasters(owner)      │   │
+│  │ - verify()    │       └──────────────────────────────┘   │
+│  │               │                      │                   │
+│  └───────┬───────┘                      │ deploys           │
+│          │                              ▼                   │
+│          │           ┌──────────────────────────────────┐   │
+│          │           │          Paymaster 1              │   │
+│          │           │  - deposit() / withdraw()         │   │
+│          │           │  - whitelist management           │   │
+│          │           │  - spending limits                │   │
+│          ▼           └──────────────────────────────────┘   │
+│  ┌───────────────┐                                          │
+│  │    Target     │   ┌──────────────────────────────────┐   │
+│  │   Contract    │   │          Paymaster 2              │   │
+│  │               │   │                                   │   │
+│  │  (Your dApp)  │   └──────────────────────────────────┘   │
+│  └───────────────┘                                          │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Security Model
+
+### EIP-712 Signatures
+
+All meta-transactions use typed structured data signing (EIP-712) for security:
+
+```typescript
+const domain = {
+  name: 'Mantle Gasless Relayer',
+  version: '1',
+  chainId: 5003,
+  verifyingContract: relayerHubAddress,
+};
+
+const types = {
+  MetaTransaction: [
+    { name: 'from', type: 'address' },
+    { name: 'to', type: 'address' },
+    { name: 'value', type: 'uint256' },
+    { name: 'data', type: 'bytes' },
+    { name: 'nonce', type: 'uint256' },
+    { name: 'deadline', type: 'uint256' },
+  ],
+};
+```
+
+### Nonce Management
+
+Each user has a unique nonce that increments with each transaction, preventing replay attacks.
+
+### Whitelisting
+
+Paymasters only sponsor transactions to whitelisted contracts, preventing unauthorized fund drainage.
+
+### Spending Limits
+
+Paymasters can set daily and monthly limits to control costs.
+
+## Contract Documentation
+
+<DocCardGrid>
+  <DocCard
+    title="RelayerHub"
+    description="Meta-transaction execution and verification."
+    href="/docs/contracts/relayer-hub"
+  />
+  <DocCard
+    title="PaymasterFactory"
+    description="Paymaster deployment and management."
+    href="/docs/contracts/paymaster-factory"
+  />
+  <DocCard
+    title="Paymaster"
+    description="Individual sponsor contract."
+    href="/docs/contracts/paymaster"
+  />
+</DocCardGrid>
+
+## Audits
+
+Our contracts have been reviewed for security. Full audit reports are available upon request.
+
+## Source Code
+
+All contracts are verified on [Mantle Sepolia Explorer](https://sepolia.mantlescan.xyz):
+
+- [RelayerHub Source](https://sepolia.mantlescan.xyz/address/0xA5dd225Beb2Ec0009Fe143eb0B9309Ba07d23737#code)
+- [PaymasterFactory Source](https://sepolia.mantlescan.xyz/address/0x4F5f7aBa739cB54BEdc6b7a6B9615DAeDc3A26A4#code)

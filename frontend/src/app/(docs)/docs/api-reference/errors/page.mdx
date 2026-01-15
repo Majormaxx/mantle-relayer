@@ -1,0 +1,229 @@
+# Error Codes
+
+Reference for all error codes returned by the Mantle Relayer API.
+
+## Error Response Format
+
+All errors follow this format:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human readable description"
+  }
+}
+```
+
+## Error Categories
+
+### Authentication Errors (4xx)
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `UNAUTHORIZED` | 401 | Missing or invalid authentication |
+| `INVALID_SIGNATURE` | 401 | EIP-712 signature verification failed |
+| `SIGNATURE_EXPIRED` | 401 | Signature deadline has passed |
+| `FORBIDDEN` | 403 | Not authorized to perform action |
+
+### Validation Errors (4xx)
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `INVALID_REQUEST` | 400 | Malformed request body |
+| `INVALID_ADDRESS` | 400 | Invalid Ethereum address format |
+| `INVALID_DATA` | 400 | Invalid encoded function data |
+| `MISSING_FIELD` | 400 | Required field is missing |
+| `NONCE_TOO_LOW` | 400 | Nonce already used |
+| `NONCE_TOO_HIGH` | 400 | Nonce is too far ahead |
+
+### Paymaster Errors (4xx)
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `PAYMASTER_NOT_FOUND` | 404 | Paymaster address does not exist |
+| `PAYMASTER_PAUSED` | 403 | Paymaster is currently paused |
+| `PAYMASTER_INSUFFICIENT_BALANCE` | 402 | Paymaster needs more MNT |
+| `CONTRACT_NOT_WHITELISTED` | 403 | Target contract not in whitelist |
+| `SPENDING_LIMIT_EXCEEDED` | 403 | User or daily limit exceeded |
+
+### Transaction Errors (4xx/5xx)
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `TRANSACTION_NOT_FOUND` | 404 | Transaction hash not found |
+| `TRANSACTION_FAILED` | 500 | Transaction reverted on-chain |
+| `GAS_ESTIMATION_FAILED` | 500 | Could not estimate gas |
+| `SIMULATION_FAILED` | 400 | Transaction would revert |
+
+### Rate Limiting (4xx)
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `RATE_LIMIT_EXCEEDED` | 429 | Too many requests |
+
+### Server Errors (5xx)
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `INTERNAL_ERROR` | 500 | Unexpected server error |
+| `BLOCKCHAIN_ERROR` | 503 | Error communicating with chain |
+| `SERVICE_UNAVAILABLE` | 503 | Service temporarily down |
+
+## Handling Errors in Code
+
+### JavaScript/TypeScript
+
+```typescript
+import { RelayerError, RelayerErrorCode } from '@mantle-relayer/sdk';
+
+try {
+  await client.sendTransaction(request, signature);
+} catch (error) {
+  if (error instanceof RelayerError) {
+    switch (error.code) {
+      case RelayerErrorCode.CONTRACT_NOT_WHITELISTED:
+        // Contract needs to be added to whitelist
+        showMessage('This action is not supported');
+        break;
+        
+      case RelayerErrorCode.PAYMASTER_INSUFFICIENT_BALANCE:
+        // Paymaster needs funding
+        showMessage('Service temporarily unavailable');
+        logToAdmin('Paymaster needs funds');
+        break;
+        
+      case RelayerErrorCode.SPENDING_LIMIT_EXCEEDED:
+        // User hit their limit
+        showMessage('Daily limit reached');
+        break;
+        
+      case RelayerErrorCode.INVALID_SIGNATURE:
+        // Signature didn't verify
+        showMessage('Please try again');
+        break;
+        
+      case RelayerErrorCode.RATE_LIMIT_EXCEEDED:
+        // Too many requests
+        await delay(error.retryAfter ?? 1000);
+        return retry();
+        
+      default:
+        showMessage('Something went wrong');
+        console.error(error);
+    }
+  }
+}
+```
+
+### Retry Logic
+
+Some errors are transient and can be retried:
+
+```typescript
+const retryableErrors = [
+  'BLOCKCHAIN_ERROR',
+  'SERVICE_UNAVAILABLE',
+  'RATE_LIMIT_EXCEEDED',
+];
+
+async function sendWithRetry(request, signature, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await client.sendTransaction(request, signature);
+    } catch (error) {
+      if (error instanceof RelayerError) {
+        if (!retryableErrors.includes(error.code)) {
+          throw error; // Not retryable
+        }
+        
+        const delay = Math.min(1000 * Math.pow(2, i), 10000);
+        await new Promise(r => setTimeout(r, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+  
+  throw new Error('Max retries exceeded');
+}
+```
+
+## Common Error Scenarios
+
+### "Contract Not Whitelisted"
+
+**Cause:** The target contract is not in your paymaster's whitelist.
+
+**Solution:**
+1. Go to Dashboard → Paymasters → [Your Paymaster] → Whitelist
+2. Add the contract address
+3. Wait for transaction confirmation
+4. Retry the operation
+
+### "Paymaster Insufficient Balance"
+
+**Cause:** Your paymaster doesn't have enough MNT to pay for gas.
+
+**Solution:**
+1. Go to Dashboard → Paymasters → [Your Paymaster]
+2. Click "Fund"
+3. Add more MNT
+4. Retry the operation
+
+### "Spending Limit Exceeded"
+
+**Cause:** User or paymaster has hit daily/monthly spending limits.
+
+**Solution:**
+1. Wait until the limit resets (daily resets at 00:00 UTC)
+2. Or increase limits in Dashboard → Paymasters → Settings
+
+### "Invalid Signature"
+
+**Cause:** Signature verification failed. Could be:
+- Wrong chain ID
+- Wrong nonce
+- Corrupted signature data
+
+**Solution:**
+1. Ensure user is on correct network (Mantle Sepolia)
+2. Fetch fresh nonce before signing
+3. Have user sign again
+
+### "Nonce Too Low"
+
+**Cause:** Transaction with this nonce already submitted.
+
+**Solution:**
+```typescript
+// Always fetch fresh nonce before signing
+const nonce = await client.getNonce(userAddress);
+const request = { ...request, nonce };
+```
+
+## Monitoring Errors
+
+Set up error tracking in production:
+
+```typescript
+import * as Sentry from '@sentry/react';
+
+try {
+  await client.sendTransaction(request, signature);
+} catch (error) {
+  if (error instanceof RelayerError) {
+    Sentry.captureException(error, {
+      tags: {
+        errorCode: error.code,
+        paymaster: paymasterAddress,
+      },
+      extra: {
+        request,
+      },
+    });
+  }
+  throw error;
+}
+```

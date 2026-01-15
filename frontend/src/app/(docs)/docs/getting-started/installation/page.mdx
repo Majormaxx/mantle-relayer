@@ -1,0 +1,189 @@
+# Installation
+
+This guide covers installing the Mantle Relayer SDK and setting up your development environment.
+
+## SDK Installation
+
+### npm
+
+```bash
+npm install @mantle-relayer/sdk
+```
+
+### yarn
+
+```bash
+yarn add @mantle-relayer/sdk
+```
+
+### pnpm
+
+```bash
+pnpm add @mantle-relayer/sdk
+```
+
+## Peer Dependencies
+
+The SDK requires the following peer dependencies:
+
+```bash
+npm install viem@^2.0.0
+```
+
+<Callout type="note">
+  The SDK is built on top of [viem](https://viem.sh) for blockchain interactions. Make sure you have viem v2.x installed.
+</Callout>
+
+## TypeScript Configuration
+
+The SDK is written in TypeScript and includes full type definitions. No additional @types packages are needed.
+
+For the best experience, ensure your `tsconfig.json` includes:
+
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    "moduleResolution": "bundler",
+    "esModuleInterop": true
+  }
+}
+```
+
+## Framework-Specific Setup
+
+### React / Next.js
+
+```typescript
+// lib/relayer.ts
+import { RelayerClient } from '@mantle-relayer/sdk';
+
+export const relayerClient = new RelayerClient({
+  rpcUrl: process.env.NEXT_PUBLIC_RPC_URL!,
+  relayerUrl: process.env.NEXT_PUBLIC_RELAYER_URL!,
+  paymasterAddress: process.env.NEXT_PUBLIC_PAYMASTER_ADDRESS! as `0x${string}`,
+});
+```
+
+```typescript
+// hooks/useGaslessTransaction.ts
+import { useState } from 'react';
+import { relayerClient } from '@/lib/relayer';
+import { useWalletClient } from 'wagmi';
+
+export function useGaslessTransaction() {
+  const { data: walletClient } = useWalletClient();
+  const [isPending, setIsPending] = useState(false);
+
+  const sendTransaction = async (to: string, data: string) => {
+    if (!walletClient) throw new Error('Wallet not connected');
+    
+    setIsPending(true);
+    try {
+      const [address] = await walletClient.getAddresses();
+      const request = { from: address, to, data };
+      
+      const signature = await relayerClient.signMetaTransaction(walletClient, request);
+      const txHash = await relayerClient.sendTransaction(request, signature);
+      
+      return txHash;
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  return { sendTransaction, isPending };
+}
+```
+
+### Vue.js
+
+```typescript
+// composables/useRelayer.ts
+import { ref } from 'vue';
+import { RelayerClient } from '@mantle-relayer/sdk';
+
+const client = new RelayerClient({
+  rpcUrl: import.meta.env.VITE_RPC_URL,
+  relayerUrl: import.meta.env.VITE_RELAYER_URL,
+  paymasterAddress: import.meta.env.VITE_PAYMASTER_ADDRESS,
+});
+
+export function useRelayer() {
+  const isPending = ref(false);
+  const error = ref<Error | null>(null);
+
+  const sendGaslessTransaction = async (
+    walletClient: any,
+    to: string,
+    data: string
+  ) => {
+    isPending.value = true;
+    error.value = null;
+
+    try {
+      const [address] = await walletClient.getAddresses();
+      const request = { from: address, to, data };
+      
+      const signature = await client.signMetaTransaction(walletClient, request);
+      return await client.sendTransaction(request, signature);
+    } catch (e) {
+      error.value = e as Error;
+      throw e;
+    } finally {
+      isPending.value = false;
+    }
+  };
+
+  return { sendGaslessTransaction, isPending, error };
+}
+```
+
+## Environment Variables
+
+Create a `.env.local` file (or appropriate env file for your framework):
+
+```bash
+# Mantle Sepolia (Testnet)
+NEXT_PUBLIC_RPC_URL=https://rpc.sepolia.mantle.xyz
+NEXT_PUBLIC_RELAYER_URL=https://mantle-relayer-production.up.railway.app
+NEXT_PUBLIC_PAYMASTER_ADDRESS=0xYourPaymasterAddress
+NEXT_PUBLIC_CHAIN_ID=5003
+```
+
+<Callout type="warning">
+  Never expose private keys or sensitive credentials in client-side environment variables. Only use `NEXT_PUBLIC_` prefixed variables for values that are safe to expose.
+</Callout>
+
+## Verifying Installation
+
+Test your installation with a simple script:
+
+```typescript
+import { RelayerClient } from '@mantle-relayer/sdk';
+
+const client = new RelayerClient({
+  rpcUrl: 'https://rpc.sepolia.mantle.xyz',
+  relayerUrl: 'https://mantle-relayer-production.up.railway.app',
+  paymasterAddress: '0x4F5f7aBa739cB54BEdc6b7a6B9615DAeDc3A26A4',
+});
+
+// Check if relayer is healthy
+const health = await client.healthCheck();
+console.log('Relayer status:', health.status);
+```
+
+## Next Steps
+
+<DocCardGrid>
+  <DocCard
+    title="Quick Start"
+    description="Send your first gasless transaction."
+    href="/docs/getting-started/quickstart"
+  />
+  <DocCard
+    title="SDK Client Reference"
+    description="Learn about all SDK methods and options."
+    href="/docs/sdk/client"
+  />
+</DocCardGrid>

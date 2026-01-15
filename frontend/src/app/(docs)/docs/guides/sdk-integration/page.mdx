@@ -1,0 +1,311 @@
+# SDK Integration
+
+Learn how to integrate the Mantle Relayer SDK into your dApp for seamless gasless transactions.
+
+## Overview
+
+The SDK provides a simple interface to:
+- Sign meta-transactions with EIP-712
+- Submit transactions to the relayer
+- Monitor transaction status
+- Manage paymaster configuration
+
+## Basic Integration
+
+### 1. Install the SDK
+
+```bash
+npm install @mantle-relayer/sdk viem
+```
+
+### 2. Initialize the Client
+
+```typescript
+import { RelayerClient } from '@mantle-relayer/sdk';
+
+const client = new RelayerClient({
+  rpcUrl: 'https://rpc.sepolia.mantle.xyz',
+  relayerUrl: 'https://mantle-relayer-production.up.railway.app',
+  paymasterAddress: '0xYourPaymasterAddress',
+});
+```
+
+### 3. Send a Gasless Transaction
+
+```typescript
+import { createWalletClient, custom, encodeFunctionData } from 'viem';
+import { mantleSepolia } from 'viem/chains';
+
+// Connect to user's wallet
+const walletClient = createWalletClient({
+  chain: mantleSepolia,
+  transport: custom(window.ethereum),
+});
+
+const [address] = await walletClient.getAddresses();
+
+// Encode the function call
+const data = encodeFunctionData({
+  abi: contractAbi,
+  functionName: 'yourFunction',
+  args: [arg1, arg2],
+});
+
+// Create the request
+const request = {
+  from: address,
+  to: contractAddress,
+  data,
+  value: 0n, // Optional, defaults to 0
+};
+
+// Sign the meta-transaction
+const signature = await client.signMetaTransaction(walletClient, request);
+
+// Submit to relayer
+const txHash = await client.sendTransaction(request, signature);
+
+// Wait for confirmation
+const receipt = await client.waitForTransaction(txHash);
+```
+
+## React Integration
+
+### Custom Hook
+
+```typescript
+// hooks/useGaslessTransaction.ts
+import { useState, useCallback } from 'react';
+import { useWalletClient, usePublicClient } from 'wagmi';
+import { RelayerClient } from '@mantle-relayer/sdk';
+import { encodeFunctionData } from 'viem';
+
+const client = new RelayerClient({
+  rpcUrl: process.env.NEXT_PUBLIC_RPC_URL!,
+  relayerUrl: process.env.NEXT_PUBLIC_RELAYER_URL!,
+  paymasterAddress: process.env.NEXT_PUBLIC_PAYMASTER_ADDRESS! as `0x${string}`,
+});
+
+interface TransactionRequest {
+  to: `0x${string}`;
+  abi: any;
+  functionName: string;
+  args?: any[];
+}
+
+export function useGaslessTransaction() {
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
+  
+  const [isPending, setIsPending] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
+
+  const sendTransaction = useCallback(
+    async ({ to, abi, functionName, args = [] }: TransactionRequest) => {
+      if (!walletClient) {
+        throw new Error('Wallet not connected');
+      }
+
+      setIsPending(true);
+      setError(null);
+      setTxHash(null);
+
+      try {
+        const [address] = await walletClient.getAddresses();
+        
+        const data = encodeFunctionData({
+          abi,
+          functionName,
+          args,
+        });
+
+        const request = { from: address, to, data };
+        
+        // Sign
+        const signature = await client.signMetaTransaction(walletClient, request);
+        
+        // Send
+        const hash = await client.sendTransaction(request, signature);
+        setTxHash(hash);
+        
+        // Wait for confirmation
+        setIsConfirming(true);
+        setIsPending(false);
+        
+        const receipt = await client.waitForTransaction(hash);
+        
+        setIsConfirming(false);
+        return receipt;
+      } catch (e) {
+        setError(e as Error);
+        throw e;
+      } finally {
+        setIsPending(false);
+        setIsConfirming(false);
+      }
+    },
+    [walletClient]
+  );
+
+  const reset = useCallback(() => {
+    setIsPending(false);
+    setIsConfirming(false);
+    setError(null);
+    setTxHash(null);
+  }, []);
+
+  return {
+    sendTransaction,
+    isPending,
+    isConfirming,
+    error,
+    txHash,
+    reset,
+  };
+}
+```
+
+### Usage in Component
+
+```tsx
+import { useGaslessTransaction } from '@/hooks/useGaslessTransaction';
+
+function MintButton() {
+  const { sendTransaction, isPending, isConfirming, txHash, error } = useGaslessTransaction();
+
+  const handleMint = async () => {
+    try {
+      const receipt = await sendTransaction({
+        to: '0xNftContractAddress',
+        abi: nftAbi,
+        functionName: 'mint',
+        args: ['0xRecipientAddress'],
+      });
+      
+      console.log('Minted!', receipt);
+    } catch (e) {
+      console.error('Mint failed:', e);
+    }
+  };
+
+  return (
+    <div>
+      <button onClick={handleMint} disabled={isPending || isConfirming}>
+        {isPending && 'Signing...'}
+        {isConfirming && 'Confirming...'}
+        {!isPending && !isConfirming && 'Mint NFT (Gasless)'}
+      </button>
+      
+      {txHash && (
+        <p>
+          Transaction: <a href={`https://sepolia.mantlescan.xyz/tx/${txHash}`}>{txHash}</a>
+        </p>
+      )}
+      
+      {error && <p className="error">{error.message}</p>}
+    </div>
+  );
+}
+```
+
+## Wagmi Integration
+
+If you're using wagmi, you can create a seamless integration:
+
+```typescript
+// lib/wagmiGasless.ts
+import { useCallback } from 'react';
+import { useWalletClient, useAccount } from 'wagmi';
+import { RelayerClient } from '@mantle-relayer/sdk';
+
+const relayer = new RelayerClient({
+  rpcUrl: process.env.NEXT_PUBLIC_RPC_URL!,
+  relayerUrl: process.env.NEXT_PUBLIC_RELAYER_URL!,
+  paymasterAddress: process.env.NEXT_PUBLIC_PAYMASTER_ADDRESS! as `0x${string}`,
+});
+
+export function useGaslessWrite() {
+  const { data: walletClient } = useWalletClient();
+  const { address } = useAccount();
+
+  return useCallback(
+    async (config: {
+      address: `0x${string}`;
+      abi: any;
+      functionName: string;
+      args?: any[];
+    }) => {
+      if (!walletClient || !address) {
+        throw new Error('Wallet not connected');
+      }
+
+      const data = encodeFunctionData({
+        abi: config.abi,
+        functionName: config.functionName,
+        args: config.args ?? [],
+      });
+
+      const request = {
+        from: address,
+        to: config.address,
+        data,
+      };
+
+      const signature = await relayer.signMetaTransaction(walletClient, request);
+      return relayer.sendTransaction(request, signature);
+    },
+    [walletClient, address]
+  );
+}
+```
+
+## Error Handling
+
+```typescript
+import { RelayerError, RelayerErrorCode } from '@mantle-relayer/sdk';
+
+try {
+  await client.sendTransaction(request, signature);
+} catch (error) {
+  if (error instanceof RelayerError) {
+    switch (error.code) {
+      case RelayerErrorCode.CONTRACT_NOT_WHITELISTED:
+        console.log('Contract not whitelisted in paymaster');
+        break;
+      case RelayerErrorCode.PAYMASTER_INSUFFICIENT_BALANCE:
+        console.log('Paymaster needs more funds');
+        break;
+      case RelayerErrorCode.SPENDING_LIMIT_EXCEEDED:
+        console.log('User has exceeded spending limits');
+        break;
+      default:
+        console.log('Relayer error:', error.message);
+    }
+  }
+}
+```
+
+## Best Practices
+
+1. **Handle wallet connection** - Always check if wallet is connected before signing
+2. **Show transaction status** - Keep users informed with pending/confirming states
+3. **Implement retry logic** - Network issues can cause temporary failures
+4. **Cache the client** - Don't recreate the RelayerClient on every render
+5. **Error boundaries** - Wrap components in error boundaries for graceful failures
+
+## Next Steps
+
+<DocCardGrid>
+  <DocCard
+    title="SDK Reference"
+    description="Complete API documentation for the SDK."
+    href="/docs/sdk"
+  />
+  <DocCard
+    title="API Reference"
+    description="REST API endpoints if you need direct integration."
+    href="/docs/api-reference"
+  />
+</DocCardGrid>

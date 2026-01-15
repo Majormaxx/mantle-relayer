@@ -1,0 +1,96 @@
+# SDK Installation
+
+Install and configure the Mantle Relayer SDK in your project.
+
+## Package Installation
+
+### npm
+
+```bash
+npm install @mantle-relayer/sdk
+```
+
+### yarn
+
+```bash
+yarn add @mantle-relayer/sdk
+```
+
+### pnpm
+
+```bash
+pnpm add @mantle-relayer/sdk
+```
+
+## Peer Dependencies
+
+The SDK requires viem as a peer dependency:
+
+```bash
+npm install viem@^2.0.0
+```
+
+## TypeScript Support
+
+The SDK is written in TypeScript and includes full type definitions. No additional `@types` packages are needed.
+
+### Minimum TypeScript Version
+
+TypeScript 5.0 or higher is recommended.
+
+### tsconfig.json
+
+```json
+{
+  "compilerOptions": {
+    "strict": true,
+    "moduleResolution": "bundler",
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM"]
+  }
+}
+```
+
+## Bundle Size
+
+The SDK is tree-shakeable. Only import what you need:
+
+```typescript
+// ✅ Good - only imports what's used
+import { RelayerClient } from '@mantle-relayer/sdk';
+
+// ❌ Avoid - imports everything
+import * as SDK from '@mantle-relayer/sdk';
+```
+
+## Browser Support
+
+The SDK supports all modern browsers:
+
+- Chrome 90+
+- Firefox 90+
+- Safari 15+
+- Edge 90+
+
+## Node.js Support
+
+For server-side usage:
+
+- Node.js 18+
+- Bun 1.0+
+- Deno (with npm compatibility)
+
+## Next Steps
+
+<DocCardGrid>
+  <DocCard
+    title="RelayerClient"
+    description="Learn how to use the main client."
+    href="/docs/sdk/client"
+  />
+  <DocCard
+    title="Examples"
+    description="See the SDK in action."
+    href="/docs/sdk/examples"
+  />
+</DocCardGrid>

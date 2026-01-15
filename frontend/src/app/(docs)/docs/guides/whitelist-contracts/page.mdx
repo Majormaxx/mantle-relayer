@@ -1,0 +1,194 @@
+# Whitelist Contracts
+
+Control which contracts your paymaster will sponsor transactions for. Whitelisting is essential for security and cost control.
+
+## Why Whitelist?
+
+Without whitelisting, anyone could drain your paymaster by sending transactions to any contract. Whitelisting ensures you only pay for transactions to contracts you explicitly approve.
+
+<Callout type="danger">
+  Never create a paymaster without whitelisting specific contracts. An open paymaster can be exploited to drain your funds.
+</Callout>
+
+## Adding Contracts via Dashboard
+
+1. Go to [Dashboard → Paymasters](/paymasters)
+2. Click on your paymaster
+3. Go to the **Whitelist** tab
+4. Click **Add Contract**
+5. Enter the contract address and optional name
+6. Confirm the transaction
+
+## Adding Contracts via SDK
+
+```typescript
+// Add a single contract
+const txHash = await paymasterClient.addWhitelistedContract({
+  walletClient,
+  paymasterAddress: '0xYourPaymaster...',
+  contractAddress: '0xContractToWhitelist...',
+});
+
+// Add multiple contracts in one transaction
+const txHash = await paymasterClient.addWhitelistedContracts({
+  walletClient,
+  paymasterAddress: '0xYourPaymaster...',
+  contractAddresses: [
+    '0xContract1...',
+    '0xContract2...',
+    '0xContract3...',
+  ],
+});
+```
+
+## Checking Whitelist Status
+
+```typescript
+const isWhitelisted = await paymasterClient.isWhitelisted({
+  paymasterAddress: '0xYourPaymaster...',
+  contractAddress: '0xContractToCheck...',
+});
+
+console.log('Is whitelisted:', isWhitelisted);
+```
+
+## Removing Contracts
+
+If you need to stop sponsoring a contract:
+
+### Via Dashboard
+
+1. Go to your paymaster's **Whitelist** tab
+2. Find the contract
+3. Click the **Remove** button
+4. Confirm the transaction
+
+### Via SDK
+
+```typescript
+const txHash = await paymasterClient.removeWhitelistedContract({
+  walletClient,
+  paymasterAddress: '0xYourPaymaster...',
+  contractAddress: '0xContractToRemove...',
+});
+```
+
+## Whitelist Strategies
+
+### Strategy 1: Specific Contracts Only
+
+Best for: Most use cases
+
+```typescript
+// Only whitelist the exact contracts you need
+await paymasterClient.addWhitelistedContracts({
+  walletClient,
+  paymasterAddress,
+  contractAddresses: [
+    '0xYourNFTContract',
+    '0xYourGameContract',
+  ],
+});
+```
+
+### Strategy 2: Multiple Versions
+
+For contracts with upgrades:
+
+```typescript
+// Whitelist both old and new versions during migration
+await paymasterClient.addWhitelistedContracts({
+  walletClient,
+  paymasterAddress,
+  contractAddresses: [
+    '0xContractV1',
+    '0xContractV2', // New version
+  ],
+});
+
+// Later, remove old version
+await paymasterClient.removeWhitelistedContract({
+  walletClient,
+  paymasterAddress,
+  contractAddress: '0xContractV1',
+});
+```
+
+### Strategy 3: Ecosystem Contracts
+
+For platforms with multiple related contracts:
+
+```typescript
+// Whitelist all your platform contracts
+const platformContracts = [
+  '0xMarketplace',
+  '0xNFTCollection',
+  '0xStaking',
+  '0xGovernance',
+];
+
+await paymasterClient.addWhitelistedContracts({
+  walletClient,
+  paymasterAddress,
+  contractAddresses: platformContracts,
+});
+```
+
+## Function-Level Control
+
+Currently, whitelisting is at the contract level. All functions on a whitelisted contract are sponsored. For function-level control:
+
+<Callout type="info">
+  Function-level whitelisting is on our roadmap. For now, use separate paymasters for different access levels if needed.
+</Callout>
+
+## Best Practices
+
+1. **Audit before whitelisting** - Only whitelist contracts you trust
+2. **Start minimal** - Begin with essential contracts, add more as needed
+3. **Document your whitelist** - Keep track of why each contract is whitelisted
+4. **Review regularly** - Remove contracts no longer in use
+5. **Use descriptive names** - The dashboard lets you add names for easy identification
+
+## Common Contracts to Whitelist
+
+| Use Case | Contracts to Whitelist |
+|----------|----------------------|
+| NFT Minting | NFT Collection contract |
+| Gaming | Game logic, inventory, marketplace |
+| DeFi | Token contracts, DEX router |
+| DAO | Governance, voting contracts |
+| Social | Profile, content, following contracts |
+
+## Troubleshooting
+
+### Transaction Rejected - Contract Not Whitelisted
+
+```
+Error: Target contract is not whitelisted
+```
+
+**Solution:** Add the target contract to your paymaster's whitelist.
+
+### Transaction Rejected - Paymaster Paused
+
+```
+Error: Paymaster is paused
+```
+
+**Solution:** Unpause your paymaster in the dashboard.
+
+## Next Steps
+
+<DocCardGrid>
+  <DocCard
+    title="SDK Integration"
+    description="Integrate gasless transactions into your dApp."
+    href="/docs/guides/sdk-integration"
+  />
+  <DocCard
+    title="Smart Contracts"
+    description="Learn about the Paymaster contract interface."
+    href="/docs/contracts/paymaster"
+  />
+</DocCardGrid>

@@ -294,8 +294,8 @@ export const paymasterAbi = [
   },
 ] as const;
 
-// Contract addresses on Mantle Sepolia
+// Contract addresses on Mantle Sepolia (configurable via env vars)
 export const CONTRACT_ADDRESSES = {
-  PAYMASTER_FACTORY: '0x4F5f7aBa739cB54BEdc6b7a6B9615DAeDc3A26A4' as `0x${string}`,
-  RELAYER_HUB: '0xA5dd225Beb2Ec0009Fe143eb0B9309Ba07d23737' as `0x${string}`,
+  PAYMASTER_FACTORY: (process.env['NEXT_PUBLIC_PAYMASTER_FACTORY_ADDRESS'] ?? '0x4F5f7aBa739cB54BEdc6b7a6B9615DAeDc3A26A4') as `0x${string}`,
+  RELAYER_HUB: (process.env['NEXT_PUBLIC_RELAYER_HUB_ADDRESS'] ?? '0xA5dd225Beb2Ec0009Fe143eb0B9309Ba07d23737') as `0x${string}`,
 } as const;

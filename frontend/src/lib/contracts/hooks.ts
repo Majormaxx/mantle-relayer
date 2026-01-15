@@ -134,7 +134,9 @@ export function usePaymasterBalance(paymasterAddress: `0x${string}` | undefined)
     functionName: 'getBalance',
     query: {
       enabled: !!paymasterAddress,
-      refetchInterval: 30_000, // Refresh every 30 seconds
+      staleTime: 60_000, // Data is fresh for 1 minute
+      gcTime: 5 * 60_000, // Keep in cache for 5 minutes
+      // No refetchInterval - data updates on user actions
     },
   });
 

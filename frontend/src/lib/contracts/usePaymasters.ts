@@ -24,6 +24,8 @@ export function usePaymastersWithData() {
     }] : [],
     query: {
       enabled: !!address,
+      staleTime: 60_000, // Data is fresh for 1 minute
+      gcTime: 5 * 60_000, // Keep in cache for 5 minutes
     },
   });
 
@@ -59,7 +61,9 @@ export function usePaymastersWithData() {
     contracts: paymasterContracts,
     query: {
       enabled: paymasterContracts.length > 0,
-      refetchInterval: 30_000, // Refresh every 30 seconds
+      staleTime: 60_000, // Data is fresh for 1 minute
+      gcTime: 5 * 60_000, // Keep in cache for 5 minutes
+      // No refetchInterval - data updates on user actions
     },
   });
 
@@ -130,7 +134,9 @@ export function useWalletMntBalance() {
     address,
     query: {
       enabled: !!address,
-      refetchInterval: 30_000,
+      staleTime: 60_000, // Data is fresh for 1 minute
+      gcTime: 5 * 60_000, // Keep in cache for 5 minutes
+      // No refetchInterval - data updates on user actions
     },
   });
 

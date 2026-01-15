@@ -1,0 +1,180 @@
+# Quick Start
+
+Get up and running with Mantle Gasless Relayer in under 5 minutes. This guide walks you through creating your first paymaster and sending a gasless transaction.
+
+## Prerequisites
+
+Before starting, make sure you have:
+
+- A wallet with MNT tokens on Mantle Sepolia
+- Node.js 18+ installed
+- A basic understanding of TypeScript/JavaScript
+
+## Step 1: Create a Paymaster
+
+The easiest way to create a paymaster is through our dashboard:
+
+1. Go to the [Dashboard](/dashboard)
+2. Connect your wallet
+3. Click **Create Paymaster**
+4. Fund with initial MNT (minimum 1 MNT recommended)
+
+<Callout type="tip">
+  You can also create a paymaster programmatically using the SDK or by interacting with the PaymasterFactory contract directly.
+</Callout>
+
+## Step 2: Install the SDK
+
+```bash
+npm install @mantle-relayer/sdk
+```
+
+Or with yarn:
+
+```bash
+yarn add @mantle-relayer/sdk
+```
+
+## Step 3: Configure the Client
+
+Create a relayer client in your application:
+
+```typescript
+import { RelayerClient } from '@mantle-relayer/sdk';
+
+const client = new RelayerClient({
+  rpcUrl: 'https://rpc.sepolia.mantle.xyz',
+  relayerUrl: 'https://mantle-relayer-production.up.railway.app',
+  paymasterAddress: '0xYourPaymasterAddress',
+});
+```
+
+## Step 4: Sign and Send a Transaction
+
+```typescript
+import { createWalletClient, custom } from 'viem';
+import { mantleSepolia } from 'viem/chains';
+
+// Create a wallet client (browser with MetaMask)
+const walletClient = createWalletClient({
+  chain: mantleSepolia,
+  transport: custom(window.ethereum),
+});
+
+// Get the user's address
+const [address] = await walletClient.getAddresses();
+
+// Define the transaction
+const request = {
+  from: address,
+  to: '0xTargetContractAddress',
+  data: '0x...', // Encoded function call
+};
+
+// Sign with EIP-712
+const signature = await client.signMetaTransaction(walletClient, request);
+
+// Send via relayer
+const txHash = await client.sendTransaction(request, signature);
+
+console.log('Transaction sent:', txHash);
+```
+
+## Step 5: Monitor the Transaction
+
+```typescript
+// Wait for confirmation
+const receipt = await client.waitForTransaction(txHash);
+
+if (receipt.status === 'success') {
+  console.log('Transaction confirmed!');
+} else {
+  console.log('Transaction failed:', receipt.error);
+}
+```
+
+## Complete Example
+
+Here's a complete example that mints an NFT without the user paying gas:
+
+```typescript
+import { RelayerClient } from '@mantle-relayer/sdk';
+import { createWalletClient, custom, encodeFunctionData } from 'viem';
+import { mantleSepolia } from 'viem/chains';
+
+// NFT contract ABI (simplified)
+const nftAbi = [
+  {
+    name: 'mint',
+    type: 'function',
+    inputs: [{ name: 'to', type: 'address' }],
+    outputs: [],
+  },
+] as const;
+
+async function mintNftGasless() {
+  // Initialize client
+  const client = new RelayerClient({
+    rpcUrl: 'https://rpc.sepolia.mantle.xyz',
+    relayerUrl: 'https://mantle-relayer-production.up.railway.app',
+    paymasterAddress: '0xYourPaymasterAddress',
+  });
+
+  // Connect wallet
+  const walletClient = createWalletClient({
+    chain: mantleSepolia,
+    transport: custom(window.ethereum),
+  });
+
+  const [address] = await walletClient.getAddresses();
+
+  // Encode the mint call
+  const data = encodeFunctionData({
+    abi: nftAbi,
+    functionName: 'mint',
+    args: [address],
+  });
+
+  // Create request
+  const request = {
+    from: address,
+    to: '0xNftContractAddress',
+    data,
+  };
+
+  // Sign and send
+  const signature = await client.signMetaTransaction(walletClient, request);
+  const txHash = await client.sendTransaction(request, signature);
+
+  // Wait for confirmation
+  const receipt = await client.waitForTransaction(txHash);
+  
+  return receipt;
+}
+```
+
+<Callout type="warning">
+  Make sure the NFT contract address is whitelisted in your paymaster, or the transaction will be rejected.
+</Callout>
+
+## What's Next?
+
+Now that you've sent your first gasless transaction, explore more:
+
+<DocCardGrid>
+  <DocCard
+    title="Whitelist Contracts"
+    description="Learn how to control which contracts your paymaster sponsors."
+    href="/docs/guides/whitelist-contracts"
+  />
+  <DocCard
+    title="Set Spending Limits"
+    description="Protect your paymaster with daily and monthly limits."
+    href="/docs/guides/spending-limits"
+  />
+  <DocCard
+    title="SDK Reference"
+    description="Complete API documentation for the SDK."
+    href="/docs/sdk"
+  />
+</DocCardGrid>

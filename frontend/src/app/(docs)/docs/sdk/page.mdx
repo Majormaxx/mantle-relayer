@@ -1,0 +1,104 @@
+# SDK Reference
+
+Complete TypeScript SDK documentation for the Mantle Gasless Relayer.
+
+## Overview
+
+The `@mantle-relayer/sdk` package provides everything you need to integrate gasless transactions into your dApp.
+
+## Installation
+
+```bash
+npm install @mantle-relayer/sdk viem
+```
+
+## Main Classes
+
+<DocCardGrid>
+  <DocCard
+    title="RelayerClient"
+    description="Core client for sending gasless transactions."
+    href="/docs/sdk/client"
+  />
+  <DocCard
+    title="PaymasterClient"
+    description="Manage paymaster configuration and funds."
+    href="/docs/sdk/paymaster-client"
+  />
+</DocCardGrid>
+
+## Quick Reference
+
+### RelayerClient
+
+```typescript
+import { RelayerClient } from '@mantle-relayer/sdk';
+
+const client = new RelayerClient({
+  rpcUrl: string,           // Mantle RPC URL
+  relayerUrl: string,       // Relayer backend URL
+  paymasterAddress: string, // Your paymaster address
+});
+
+// Methods
+await client.signMetaTransaction(walletClient, request);
+await client.sendTransaction(request, signature);
+await client.waitForTransaction(txHash);
+await client.healthCheck();
+```
+
+### PaymasterClient
+
+```typescript
+import { PaymasterClient } from '@mantle-relayer/sdk';
+
+const paymasterClient = new PaymasterClient({
+  rpcUrl: string,
+  factoryAddress: string,
+});
+
+// Methods
+await paymasterClient.createPaymaster(options);
+await paymasterClient.fund(options);
+await paymasterClient.withdraw(options);
+await paymasterClient.addWhitelistedContract(options);
+await paymasterClient.removeWhitelistedContract(options);
+await paymasterClient.getBalance(address);
+await paymasterClient.isWhitelisted(options);
+```
+
+## Type Exports
+
+```typescript
+import type {
+  MetaTransactionRequest,
+  TransactionReceipt,
+  RelayerConfig,
+  PaymasterConfig,
+} from '@mantle-relayer/sdk';
+```
+
+## Error Handling
+
+```typescript
+import { 
+  RelayerError, 
+  RelayerErrorCode,
+  PaymasterError,
+} from '@mantle-relayer/sdk';
+```
+
+## Examples
+
+<DocCardGrid>
+  <DocCard
+    title="Basic Usage"
+    description="Simple examples to get started."
+    href="/docs/sdk/examples"
+  />
+  <DocCard
+    title="React Integration"
+    description="Hooks and patterns for React apps."
+    href="/docs/guides/sdk-integration"
+  />
+</DocCardGrid>

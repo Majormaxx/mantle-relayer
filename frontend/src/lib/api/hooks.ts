@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CONSTANTS } from '@/config/constants';
 
 // ============================================================================
@@ -220,7 +220,8 @@ export function useTransactions(params: TransactionListParams) {
       
       return fetchApi<TransactionListResponse>(`/api/transactions?${searchParams.toString()}`);
     },
-    staleTime: 15_000,
+    staleTime: 60_000, // Data is fresh for 1 minute
+    gcTime: 5 * 60_000, // Keep in cache for 5 minutes
   });
 }
 
@@ -235,8 +236,9 @@ export function useRecentTransactions(paymasterId?: string, limit: number = 10) 
       if (paymasterId) params.set('paymasterId', paymasterId);
       return fetchApi<Transaction[]>(`/api/transactions/recent?${params.toString()}`);
     },
-    staleTime: 15_000,
-    refetchInterval: 30_000, // Refetch every 30 seconds for near real-time
+    staleTime: 60_000, // Data is fresh for 1 minute
+    gcTime: 5 * 60_000, // Keep in cache for 5 minutes
+    // No refetchInterval - data updates on user actions
   });
 }
 

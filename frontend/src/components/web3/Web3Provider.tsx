@@ -14,12 +14,16 @@ import { wagmiConfig } from '@/lib/wagmi';
 // Import RainbowKit styles
 import '@rainbow-me/rainbowkit/styles.css';
 
-// Create a query client for React Query
+// Create a query client for React Query with optimized settings
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60, // 1 minute
-      refetchOnWindowFocus: false,
+      staleTime: 60_000, // 1 minute - data is fresh
+      gcTime: 5 * 60_000, // 5 minutes - keep in cache
+      refetchOnWindowFocus: false, // Don't refetch when window gains focus
+      refetchOnMount: false, // Don't refetch on component mount if data is fresh
+      refetchOnReconnect: false, // Don't refetch on network reconnect
+      retry: 1, // Only retry once on failure
     },
   },
 });

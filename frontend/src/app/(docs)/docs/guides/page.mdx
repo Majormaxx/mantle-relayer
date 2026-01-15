@@ -1,0 +1,122 @@
+# Guides
+
+Practical guides for common tasks and integrations with the Mantle Gasless Relayer.
+
+## Overview
+
+These guides walk you through real-world scenarios and best practices for using the relayer effectively.
+
+<Callout type="tip">
+  New to Mantle Relayer? Start with the [Getting Started](/docs/getting-started) guide first.
+</Callout>
+
+## Paymaster Management
+
+<DocCardGrid>
+  <DocCard
+    title="Create Paymaster"
+    description="Deploy and configure your own paymaster contract."
+    href="/docs/guides/create-paymaster"
+  />
+  <DocCard
+    title="Fund Paymaster"
+    description="Add MNT to your paymaster and manage balances."
+    href="/docs/guides/fund-paymaster"
+  />
+  <DocCard
+    title="Whitelist Contracts"
+    description="Control which contracts can be sponsored."
+    href="/docs/guides/whitelist-contracts"
+  />
+</DocCardGrid>
+
+## Integration
+
+<DocCardGrid>
+  <DocCard
+    title="SDK Integration"
+    description="Integrate gasless transactions into your dApp."
+    href="/docs/guides/sdk-integration"
+  />
+</DocCardGrid>
+
+## Common Patterns
+
+### Sponsoring NFT Mints
+
+One of the most common use cases is sponsoring NFT mints so users don't need gas to collect your NFTs.
+
+```typescript
+// Whitelist your NFT contract
+await paymaster.addWhitelistedContract(nftContractAddress);
+
+// Users can now mint without paying gas
+const signature = await client.signMetaTransaction(walletClient, {
+  from: userAddress,
+  to: nftContractAddress,
+  data: encodeFunctionData({
+    abi: nftAbi,
+    functionName: 'mint',
+    args: [userAddress],
+  }),
+});
+```
+
+### Gaming Transactions
+
+For games, you might want to sponsor all in-game transactions while setting daily limits:
+
+```typescript
+// Set spending limits to prevent abuse
+await paymaster.setSpendingLimits({
+  dailyLimit: parseEther('10'), // 10 MNT per day per user
+  monthlyLimit: parseEther('100'), // 100 MNT per month
+});
+
+// Whitelist game contracts
+await paymaster.addWhitelistedContracts([
+  gameInventoryContract,
+  gameMarketplaceContract,
+  gameTokenContract,
+]);
+```
+
+### DeFi Approvals
+
+Make token approvals gasless so users can immediately start trading:
+
+```typescript
+// Sponsor ERC20 approvals
+const approvalData = encodeFunctionData({
+  abi: erc20Abi,
+  functionName: 'approve',
+  args: [dexRouterAddress, maxUint256],
+});
+
+const txHash = await client.sendGaslessTransaction({
+  from: userAddress,
+  to: tokenAddress,
+  data: approvalData,
+});
+```
+
+## Best Practices
+
+### Security
+
+1. **Always whitelist specific contracts** - Never whitelist all contracts
+2. **Set spending limits** - Protect against abuse and unexpected costs
+3. **Monitor usage** - Use the dashboard to track spending patterns
+4. **Test on testnet first** - Verify your configuration before mainnet
+
+### Performance
+
+1. **Cache relayer responses** - Avoid unnecessary health checks
+2. **Batch transactions when possible** - Some operations can be combined
+3. **Use appropriate gas limits** - Don't over-estimate, let the relayer optimize
+
+### User Experience
+
+1. **Show transaction status** - Keep users informed during the process
+2. **Handle errors gracefully** - Provide clear error messages
+3. **Offer fallback options** - Allow users to pay gas if the relayer is unavailable

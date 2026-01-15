@@ -1,0 +1,231 @@
+# PaymasterFactory
+
+The PaymasterFactory contract is responsible for deploying new Paymaster contracts.
+
+## Overview
+
+Each developer/project deploys their own Paymaster through this factory. The factory keeps track of all deployed paymasters and their owners.
+
+## Contract Address
+
+| Network | Address |
+|---------|---------|
+| Mantle Sepolia | `0x4F5f7aBa739cB54BEdc6b7a6B9615DAeDc3A26A4` |
+
+## Interface
+
+```solidity
+interface IPaymasterFactory {
+    function createPaymaster() external payable returns (address);
+
+    function createPaymasterWithConfig(
+        uint256 initialDeposit,
+        address[] calldata whitelistedContracts,
+        uint256 dailyLimit,
+        uint256 monthlyLimit
+    ) external payable returns (address);
+
+    function getPaymasters(address owner) external view returns (address[] memory);
+
+    function getAllPaymasters() external view returns (address[] memory);
+
+    function getTotalPaymasters() external view returns (uint256);
+
+    function isPaymaster(address addr) external view returns (bool);
+
+    function getPaymasterOwner(address paymaster) external view returns (address);
+}
+```
+
+## Functions
+
+### createPaymaster
+
+Deploys a new Paymaster contract with default settings.
+
+```solidity
+function createPaymaster() external payable returns (address)
+```
+
+**Parameters:**
+
+Send MNT with the transaction to fund the paymaster initially.
+
+**Returns:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `paymaster` | `address` | Address of the deployed paymaster |
+
+**Example:**
+
+```typescript
+import { parseEther } from 'viem';
+
+// Create with 5 MNT initial funding
+const tx = await walletClient.writeContract({
+  address: factoryAddress,
+  abi: factoryAbi,
+  functionName: 'createPaymaster',
+  value: parseEther('5'),
+});
+```
+
+---
+
+### createPaymasterWithConfig
+
+Deploys a new Paymaster with initial configuration.
+
+```solidity
+function createPaymasterWithConfig(
+    uint256 initialDeposit,
+    address[] calldata whitelistedContracts,
+    uint256 dailyLimit,
+    uint256 monthlyLimit
+) external payable returns (address)
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `initialDeposit` | `uint256` | Amount to deposit (must match msg.value) |
+| `whitelistedContracts` | `address[]` | Initial contracts to whitelist |
+| `dailyLimit` | `uint256` | Daily spending limit in wei |
+| `monthlyLimit` | `uint256` | Monthly spending limit in wei |
+
+**Returns:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `paymaster` | `address` | Address of the deployed paymaster |
+
+**Example:**
+
+```typescript
+import { parseEther } from 'viem';
+
+const tx = await walletClient.writeContract({
+  address: factoryAddress,
+  abi: factoryAbi,
+  functionName: 'createPaymasterWithConfig',
+  args: [
+    parseEther('10'),                    // initialDeposit
+    [nftContract, gameContract],         // whitelistedContracts
+    parseEther('5'),                     // dailyLimit
+    parseEther('50'),                    // monthlyLimit
+  ],
+  value: parseEther('10'),
+});
+```
+
+---
+
+### getPaymasters
+
+Returns all paymasters owned by an address.
+
+```solidity
+function getPaymasters(address owner) external view returns (address[] memory)
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `owner` | `address` | Owner wallet address |
+
+**Returns:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `paymasters` | `address[]` | Array of paymaster addresses |
+
+---
+
+### getAllPaymasters
+
+Returns all deployed paymasters.
+
+```solidity
+function getAllPaymasters() external view returns (address[] memory)
+```
+
+<Callout type="warning">
+  This function may be gas-intensive if there are many paymasters. Use for indexing, not in user-facing calls.
+</Callout>
+
+---
+
+### getTotalPaymasters
+
+Returns the total number of deployed paymasters.
+
+```solidity
+function getTotalPaymasters() external view returns (uint256)
+```
+
+---
+
+### isPaymaster
+
+Checks if an address is a valid paymaster.
+
+```solidity
+function isPaymaster(address addr) external view returns (bool)
+```
+
+---
+
+### getPaymasterOwner
+
+Returns the owner of a paymaster.
+
+```solidity
+function getPaymasterOwner(address paymaster) external view returns (address)
+```
+
+## Events
+
+### PaymasterCreated
+
+Emitted when a new paymaster is deployed.
+
+```solidity
+event PaymasterCreated(
+    address indexed paymaster,
+    address indexed owner,
+    uint256 initialDeposit
+);
+```
+
+## Reading Paymasters
+
+```typescript
+import { createPublicClient, http } from 'viem';
+import { mantleSepolia } from 'viem/chains';
+
+const publicClient = createPublicClient({
+  chain: mantleSepolia,
+  transport: http(),
+});
+
+// Get user's paymasters
+const paymasters = await publicClient.readContract({
+  address: '0x4F5f7aBa739cB54BEdc6b7a6B9615DAeDc3A26A4',
+  abi: factoryAbi,
+  functionName: 'getPaymasters',
+  args: [userAddress],
+});
+
+console.log('User paymasters:', paymasters);
+```
+
+## Gas Costs
+
+| Function | Approximate Gas |
+|----------|----------------|
+| `createPaymaster` | ~800,000 |
+| `createPaymasterWithConfig` | ~1,000,000 + 50,000 per whitelisted contract |
+| `getPaymasters` | View function (free) |
