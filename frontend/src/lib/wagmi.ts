@@ -2,8 +2,9 @@ import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { http } from 'wagmi';
 import { mantleSepolia } from '@/config/chains';
 
-// WalletConnect Project ID - Replace with your own in production
-const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || 'demo';
+// WalletConnect Project ID - Get yours at https://cloud.walletconnect.com
+// Using a placeholder that allows local development without WalletConnect
+const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || 'YOUR_PROJECT_ID';
 
 export const wagmiConfig = getDefaultConfig({
   appName: 'Mantle Gasless Relayer',
