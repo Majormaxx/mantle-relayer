@@ -1,0 +1,198 @@
+# Troubleshooting
+
+Solutions to common issues when using Mantle Gasless Relayer.
+
+## Transaction Errors
+
+### Transaction Failed: Contract Not Whitelisted
+
+**Error:** `Contract not whitelisted for this Paymaster`
+
+**Solution:**
+1. Go to your Paymaster in the dashboard
+2. Navigate to the "Whitelist" tab
+3. Add the contract address that the user is trying to interact with
+4. Save changes (requires an on-chain transaction)
+
+<Callout type="info">
+Remember to whitelist both the contract address and the specific functions you want to sponsor.
+</Callout>
+
+### Transaction Failed: Insufficient Paymaster Balance
+
+**Error:** `Paymaster balance insufficient for transaction`
+
+**Solution:**
+1. Check your Paymaster balance in the dashboard
+2. Fund your Paymaster with additional MNT
+3. Consider setting up balance alerts to avoid this in the future
+
+### Transaction Failed: Spending Limit Exceeded
+
+**Error:** `Transaction would exceed spending limit`
+
+**Solution:**
+1. Check your current spending limits in the dashboard
+2. Either increase the limits or wait for the period to reset
+3. Review your limits configuration if this happens frequently
+
+### Transaction Failed: Invalid Signature
+
+**Error:** `Invalid EIP-712 signature`
+
+**Possible causes:**
+- User cancelled the signing request
+- Signature was created for a different chain
+- Nonce mismatch
+
+**Solution:**
+- Ensure the user completes the signing request
+- Verify you're on the correct network (Mantle or Mantle Sepolia)
+- Retry the transaction to get a fresh nonce
+
+## SDK Issues
+
+### SDK Not Connecting
+
+**Symptoms:** `MantleRelayerClient` fails to initialize or connect
+
+**Checklist:**
+```typescript
+// Make sure you're using the correct configuration
+const client = new MantleRelayerClient({
+  paymasterAddress: '0x...', // Your Paymaster address
+  rpcUrl: 'https://rpc.sepolia.mantle.xyz', // Correct RPC
+  relayerUrl: 'https://api.mantlerelayer.com', // Relayer API
+});
+```
+
+**Common fixes:**
+1. Verify your Paymaster address is correct
+2. Check the RPC URL matches your target network
+3. Ensure the relayer URL is accessible
+
+### Wallet Not Signing
+
+**Symptoms:** User wallet doesn't show the signing popup
+
+**Possible causes:**
+- Wallet doesn't support EIP-712
+- Connection to wallet lost
+- Popup blocked by browser
+
+**Solution:**
+```typescript
+// Ensure wallet is connected before signing
+if (!isConnected) {
+  await connect();
+}
+
+// Then request signature
+const signature = await client.signTransaction(tx);
+```
+
+### Type Errors with TypeScript
+
+**Symptoms:** TypeScript compilation errors with SDK types
+
+**Solution:**
+Ensure you have the correct TypeScript configuration:
+```json
+{
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "strict": true
+  }
+}
+```
+
+## Dashboard Issues
+
+### Paymaster Not Showing
+
+**Symptoms:** Created a Paymaster but it doesn't appear in dashboard
+
+**Possible causes:**
+- Transaction still pending
+- Wrong network selected
+- Wallet not connected
+
+**Solution:**
+1. Check the transaction status in a block explorer
+2. Ensure you're connected with the same wallet that created the Paymaster
+3. Verify you're on the correct network
+
+### Analytics Not Updating
+
+**Symptoms:** Dashboard analytics show outdated data
+
+**Possible causes:**
+- Data refresh delay (usually updates every few minutes)
+- No new transactions
+
+**Solution:**
+- Wait a few minutes and refresh the page
+- Check the "Recent Transactions" section for latest activity
+
+## Network Issues
+
+### Wrong Network Error
+
+**Error:** `Chain ID mismatch` or `Please switch to Mantle network`
+
+**Solution:**
+1. Add Mantle network to your wallet if not already added
+2. Switch to the correct network:
+   - Mainnet: Chain ID 5000
+   - Sepolia Testnet: Chain ID 5003
+
+**Add network to MetaMask:**
+```typescript
+await window.ethereum.request({
+  method: 'wallet_addEthereumChain',
+  params: [{
+    chainId: '0x138B', // 5003 in hex for Sepolia
+    chainName: 'Mantle Sepolia Testnet',
+    rpcUrls: ['https://rpc.sepolia.mantle.xyz'],
+    nativeCurrency: {
+      name: 'MNT',
+      symbol: 'MNT',
+      decimals: 18,
+    },
+    blockExplorerUrls: ['https://explorer.sepolia.mantle.xyz'],
+  }],
+});
+```
+
+### RPC Connection Errors
+
+**Symptoms:** Timeouts or connection refused errors
+
+**Possible causes:**
+- RPC endpoint down or rate limited
+- Network connectivity issues
+
+**Solution:**
+- Try alternative RPC endpoints
+- Implement retry logic with exponential backoff
+- Consider using a dedicated RPC provider
+
+## Still Having Issues?
+
+<Callout type="warning">
+If you've tried these solutions and still have issues, please reach out to our support team.
+</Callout>
+
+<DocCardGrid>
+  <DocCard
+    title="GitHub Issues"
+    description="Report bugs or request features"
+    href="https://github.com/mantle-relayer/issues"
+  />
+  <DocCard
+    title="Discord Support"
+    description="Get help from the community"
+    href="https://discord.gg/mantlerelayer"
+  />
+</DocCardGrid>

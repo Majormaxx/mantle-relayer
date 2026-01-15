@@ -53,10 +53,10 @@ const mainNavItems = [
 
 const secondaryNavItems = [
   {
-    href: 'https://docs.mantlerelayer.com',
+    href: '/docs',
     label: 'Documentation',
     icon: FileText,
-    external: true,
+    external: false,
   },
   {
     href: 'https://discord.gg/mantlerelayer',

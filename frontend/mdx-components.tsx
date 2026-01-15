@@ -1,6 +1,23 @@
 import type { MDXComponents } from 'mdx/types';
 import Link from 'next/link';
-import { Callout, Pre, DocCard, DocCardGrid, ApiEndpoint, ApiSection, ParameterTable } from '@/components/docs';
+import { 
+  Callout, 
+  Pre, 
+  CodeBlock,
+  TerminalBlock,
+  DocCard, 
+  DocCardGrid, 
+  ApiEndpoint, 
+  ApiSection, 
+  ParameterTable,
+  Tabs,
+  Tab,
+  PackageManagerTabs,
+  FrameworkTabs,
+  Steps,
+  Step,
+  InteractiveSteps,
+} from '@/components/docs';
 
 // Custom components for MDX
 export function useMDXComponents(components: MDXComponents): MDXComponents {
@@ -132,11 +149,20 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     ),
     // Custom components
     Callout,
+    CodeBlock,
+    TerminalBlock,
     DocCard,
     DocCardGrid,
     ApiEndpoint,
     ApiSection,
     ParameterTable,
+    Tabs,
+    Tab,
+    PackageManagerTabs,
+    FrameworkTabs,
+    Steps,
+    Step,
+    InteractiveSteps,
     // Spread any custom components passed
     ...components,
   };

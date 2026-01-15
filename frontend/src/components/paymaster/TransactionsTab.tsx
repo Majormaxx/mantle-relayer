@@ -383,7 +383,7 @@ export function TransactionsTab({ paymasterId }: TransactionsTabProps) {
           Transactions will appear here once users start interacting with your Paymaster through the SDK.
         </p>
         <Button variant="outline" className="mt-4" asChild>
-          <a href="/docs/integration" target="_blank" rel="noopener noreferrer">
+          <a href="/docs/guides/sdk-integration">
             View Integration Guide
             <ExternalLink className="h-4 w-4 ml-2" />
           </a>

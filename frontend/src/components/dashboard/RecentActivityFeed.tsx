@@ -204,7 +204,7 @@ function EmptyActivityState({ className }: { className?: string }) {
       <p className="mb-6 max-w-sm text-center text-sm text-muted-foreground">
         Transactions will appear here once users start using your Paymaster.
       </p>
-      <Link href="/docs/integration">
+      <Link href="/docs/guides/sdk-integration">
         <Button variant="outline" className="gap-2">
           <BookOpen className="h-4 w-4" />
           View Integration Guide

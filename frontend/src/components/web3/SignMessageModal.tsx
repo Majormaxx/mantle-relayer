@@ -142,12 +142,10 @@ export function SignMessageModal({ open, onSuccess }: SignMessageModalProps) {
           {/* Help Link */}
           <div className="text-center pt-2">
             <a
-              href="https://docs.mantle.xyz"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/docs"
               className="text-xs text-zinc-500 hover:text-zinc-400 transition-colors"
             >
-              Having trouble? Contact support →
+              Having trouble? View documentation →
             </a>
           </div>
         </div>

@@ -121,9 +121,9 @@ export function HeroSection() {
             <Link href="/dashboard">Get Started Free</Link>
           </Button>
           <Button asChild variant="outline" size="lg" className="min-w-[180px] h-12 text-base">
-            <a href="https://docs.mantlerelayer.xyz" target="_blank" rel="noopener noreferrer">
+            <Link href="/docs">
               View Documentation
-            </a>
+            </Link>
           </Button>
         </div>
 

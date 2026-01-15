@@ -1,0 +1,98 @@
+# Frequently Asked Questions
+
+Common questions about Mantle Gasless Relayer.
+
+## General Questions
+
+### What is a Paymaster?
+
+A Paymaster is a smart contract that sponsors gas fees for your users' transactions. When a user interacts with your dApp, the Paymaster pays for the transaction gas using its funded balance, making the experience completely gasless for your users.
+
+### Is this only for Mantle Network?
+
+Currently, Mantle Gasless Relayer is designed specifically for Mantle Network (and Mantle Sepolia testnet). The smart contracts are deployed and optimized for Mantle's architecture.
+
+### How much does it cost?
+
+Mantle Gasless Relayer is free to use on testnet. On mainnet, you only pay for the actual gas consumed by sponsored transactions. There are no additional fees or subscriptions.
+
+## Technical Questions
+
+### How does EIP-712 signing work?
+
+EIP-712 provides a standard for typed structured data signing. Instead of signing raw transaction data, users sign a human-readable message that includes all transaction details. This signature is then used by the relayer to execute the transaction on the user's behalf.
+
+<Callout type="tip">
+EIP-712 signatures show users exactly what they're signing in a readable format, improving security and trust.
+</Callout>
+
+### What happens if my Paymaster runs out of funds?
+
+If your Paymaster's balance falls below the required amount for a transaction, the transaction will fail. Users will see an error message, and you'll receive a notification (if configured). We recommend setting up balance alerts in the dashboard.
+
+### Can I whitelist specific functions?
+
+Yes! You can whitelist specific contracts and even specific functions within those contracts. This gives you granular control over which user actions your Paymaster will sponsor.
+
+### How do I prevent abuse?
+
+Several mechanisms help prevent abuse:
+
+1. **Contract whitelisting** - Only sponsor transactions to approved contracts
+2. **Function whitelisting** - Only sponsor specific functions
+3. **Spending limits** - Set daily/monthly gas spending caps
+4. **Rate limiting** - The relayer includes built-in rate limiting
+
+## SDK Questions
+
+### Which frameworks are supported?
+
+The SDK is framework-agnostic and works with:
+- React, Next.js, Vue, Svelte
+- Node.js backend applications
+- Any JavaScript/TypeScript environment
+- Mobile apps via React Native
+
+### Can I use the SDK without a wallet library?
+
+The SDK works best with wallet libraries like wagmi, ethers.js, or viem, as it needs to request EIP-712 signatures from users. However, you can integrate with any signing mechanism.
+
+### Is there a React hook?
+
+Yes! The SDK includes React hooks for easy integration:
+
+```typescript
+import { useMantleRelayer } from '@mantle-relayer/sdk/react';
+
+function Component() {
+  const { sendTransaction, isLoading } = useMantleRelayer();
+  // ...
+}
+```
+
+## Security Questions
+
+### Are my funds safe in a Paymaster?
+
+Yes, only you (the owner) can withdraw funds from your Paymaster. The relayer can only use funds to pay for approved transactions.
+
+### What if the relayer goes down?
+
+Your funds remain safe in your Paymaster smart contract. You can always withdraw directly from the contract, even if the relayer service is unavailable.
+
+### Is the code open source?
+
+Yes, all smart contracts are open source and verified on block explorers. The SDK is also open source.
+
+<DocCardGrid>
+  <DocCard
+    title="Troubleshooting"
+    description="Solutions to common problems"
+    href="/docs/resources/troubleshooting"
+  />
+  <DocCard
+    title="Contact Support"
+    description="Get help from our team"
+    href="https://discord.gg/mantlerelayer"
+  />
+</DocCardGrid>

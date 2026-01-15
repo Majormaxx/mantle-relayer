@@ -137,7 +137,7 @@ export function OnboardingChecklist({
       isManual: true,
       action: {
         label: 'View Docs',
-        href: 'https://docs.example.com/sdk',
+        href: '/docs/sdk',
       },
     },
   ];

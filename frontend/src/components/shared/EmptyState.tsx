@@ -141,7 +141,7 @@ export function EmptyPaymasters({ className, onAction }: PresetEmptyStateProps) 
       {...(onAction ? { action: { label: 'Create Paymaster', onClick: onAction } } : {})}
       helpLink={{
         label: 'Learn about Paymasters',
-        href: 'https://docs.mantle.xyz/paymasters',
+        href: '/docs/guides/create-paymaster',
       }}
       {...(className ? { className } : {})}
       size="lg"
@@ -179,7 +179,7 @@ export function EmptyWhitelist({ className, onAction }: PresetEmptyStateProps) {
       {...(onAction ? { action: { label: 'Add Contract', onClick: onAction } } : {})}
       helpLink={{
         label: 'Learn about whitelisting',
-        href: 'https://docs.mantle.xyz/whitelisting',
+        href: '/docs/guides/whitelist-contracts',
       }}
       {...(className ? { className } : {})}
     />
@@ -197,7 +197,7 @@ export function EmptyAnalytics({ className }: PresetEmptyStateProps) {
       description="Analytics will populate as transactions are processed through your Paymasters"
       helpLink={{
         label: 'Make sure your SDK is integrated correctly',
-        href: 'https://docs.mantle.xyz/troubleshooting',
+        href: '/docs/guides/sdk-integration',
       }}
       {...(className ? { className } : {})}
     />

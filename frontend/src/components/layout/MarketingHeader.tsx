@@ -20,7 +20,7 @@ import {
 const navLinks: Array<{ href: string; label: string; external?: boolean }> = [
   { href: '/#features', label: 'Features' },
   { href: '/pricing', label: 'Pricing' },
-  { href: 'https://docs.mantlerelayer.com', label: 'Docs', external: true },
+  { href: '/docs', label: 'Docs' },
 ];
 
 interface NavLinkProps {

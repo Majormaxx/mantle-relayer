@@ -11,6 +11,7 @@ import {
   Box,
   ChevronRight,
   ExternalLink,
+  HelpCircle,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -19,6 +20,7 @@ interface NavItem {
   href: string;
   icon?: LucideIcon;
   items?: NavItem[];
+  external?: boolean;
 }
 
 const navigation: NavItem[] = [
@@ -70,6 +72,16 @@ const navigation: NavItem[] = [
       { title: 'RelayerHub', href: '/docs/contracts/relayer-hub' },
       { title: 'PaymasterFactory', href: '/docs/contracts/paymaster-factory' },
       { title: 'Paymaster', href: '/docs/contracts/paymaster' },
+    ],
+  },
+  {
+    title: 'Resources',
+    href: '/docs/resources',
+    icon: HelpCircle,
+    items: [
+      { title: 'FAQ', href: '/docs/resources/faq' },
+      { title: 'Troubleshooting', href: '/docs/resources/troubleshooting' },
+      { title: 'GitHub', href: 'https://github.com/mantle-relayer', external: true },
     ],
   },
 ];
@@ -131,17 +143,29 @@ export function DocsSidebar({ className }: DocsSidebarProps) {
                 <ul className="ml-6 space-y-1 border-l border-zinc-800">
                   {section.items.map((item) => (
                     <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        className={cn(
-                          'block py-1 pl-4 text-sm transition-colors',
-                          isActive(item.href)
-                            ? 'border-l-2 border-indigo-500 -ml-px text-indigo-400 font-medium'
-                            : 'text-zinc-500 hover:text-zinc-200'
-                        )}
-                      >
-                        {item.title}
-                      </Link>
+                      {item.external ? (
+                        <a
+                          href={item.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 py-1 pl-4 text-sm text-zinc-500 transition-colors hover:text-zinc-200"
+                        >
+                          {item.title}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : (
+                        <Link
+                          href={item.href}
+                          className={cn(
+                            'block py-1 pl-4 text-sm transition-colors',
+                            isActive(item.href)
+                              ? 'border-l-2 border-indigo-500 -ml-px text-indigo-400 font-medium'
+                              : 'text-zinc-500 hover:text-zinc-200'
+                          )}
+                        >
+                          {item.title}
+                        </Link>
+                      )}
                     </li>
                   ))}
                 </ul>

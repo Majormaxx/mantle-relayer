@@ -49,9 +49,9 @@ const footerSections: FooterSection[] = [
   {
     title: 'Resources',
     links: [
-      { label: 'Documentation', href: 'https://docs.mantlerelayer.xyz', external: true },
-      { label: 'SDK Reference', href: 'https://docs.mantlerelayer.xyz/sdk', external: true },
-      { label: 'Tutorials', href: 'https://docs.mantlerelayer.xyz/tutorials', external: true },
+      { label: 'Documentation', href: '/docs' },
+      { label: 'SDK Reference', href: '/docs/sdk' },
+      { label: 'Tutorials', href: '/docs/guides' },
       { label: 'GitHub', href: 'https://github.com/mantle-relayer', external: true },
     ],
   },

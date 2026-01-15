@@ -1,9 +1,23 @@
 # Mantle Gasless Relayer - Documentation Site Build Prompts
 
-**Document Purpose**: Step-by-step AI prompts for building the developer documentation site  
+**Document Purpose**: Step-by-step AI prompts for building the developer documentation  
 **Format**: Instructions only, no code implementations  
-**Build Philosophy**: Component-based, real-time updates, max 600 lines per file  
-**Target Framework**: Next.js with MDX (Nextra or custom)
+**Build Philosophy**: Component-based, integrated into existing frontend, max 600 lines per file  
+**Target Framework**: Next.js App Router (integrated as /docs route in existing frontend)
+
+---
+
+## 📋 Architecture Decision: Integrated Documentation
+
+Instead of creating a separate documentation site, we integrate the docs directly into the existing frontend application. This provides:
+
+- **Single deployment** - One Vercel deployment serves both app and docs
+- **Shared components** - Reuse existing UI components, design tokens, and utilities  
+- **Consistent branding** - Same theme, fonts, and styling across app and docs
+- **Simplified maintenance** - One codebase, one set of dependencies
+- **Better SEO** - All content under same domain (mantlerelayer.com/docs)
+
+The documentation will live at: `frontend/src/app/(docs)/docs/`
 
 ---
 
@@ -45,131 +59,130 @@ Use the same colors as the main application for consistency:
 
 ## Phase 1: Project Setup
 
-### Prompt 1.1 - Initialize Documentation Project
+### Prompt 1.1 - Set Up Documentation Route Group
 
 ```
-Create a new Next.js 14 documentation site for the Mantle Gasless Relayer project.
+Create an integrated documentation section within the existing Next.js 14 frontend.
 
-Decision: Use Nextra 3.0 (Next.js-based documentation framework) OR build custom 
-MDX setup. Nextra is recommended for faster setup with excellent features.
+Architecture: Use Next.js App Router with a dedicated (docs) route group
 
-If using Nextra:
-- Use the "docs" theme
-- Configure for dark mode default
-- Set up path aliases with @ symbol
-- Configure TypeScript in strict mode
+Location: frontend/src/app/(docs)/docs/
 
-If custom setup:
-- Set up next-mdx-remote for MDX rendering
-- Configure MDX plugins (remark-gfm, rehype-slug, etc.)
-- Create MDX component mapping
+Benefits of integration:
+- Share existing design system, components, and utilities
+- Same deployment pipeline (Vercel)
+- Consistent user experience across app and docs
+- Single codebase maintenance
 
-Project should be:
-- Separate from main app but can share design system
-- Optimized for SEO
-- Fast to load and navigate
-- Easy to maintain and update content
+Setup MDX for the docs section:
+- Install @next/mdx and related packages in existing frontend
+- Configure next.config.js for MDX support
+- Create dedicated docs layout that differs from dashboard layout
+- Use existing Tailwind config and design tokens
 
-Domain consideration: docs.mantlerelayer.com or mantlerelayer.com/docs
+URL structure: mantlerelayer.com/docs/...
 ```
 
 ### Prompt 1.2 - Install Documentation Dependencies
 
 ```
-Install and configure dependencies for the documentation site:
+Add documentation dependencies to the EXISTING frontend package.json:
 
-Core:
-- Next.js 14 (if not using Nextra)
-- Nextra and nextra-theme-docs (if using Nextra)
-- TypeScript
-
-Styling:
-- TailwindCSS v4 with same configuration as main app
-- Same design tokens and CSS variables for consistency
-- Inter font and JetBrains Mono
+MDX Core:
+- @next/mdx (Next.js MDX integration)
+- @mdx-js/loader and @mdx-js/react
+- gray-matter (frontmatter parsing)
 
 Code Features:
-- Shiki or Prism for syntax highlighting
+- Shiki or rehype-pretty-code for syntax highlighting
 - Support for TypeScript, JavaScript, Solidity, Bash, JSON
 - Line highlighting capability
-- Copy button functionality
 
 MDX Plugins:
 - remark-gfm (GitHub Flavored Markdown)
 - rehype-slug (heading IDs)
 - rehype-autolink-headings (clickable headings)
-- remark-toc (table of contents generation)
 
 Search:
-- Flexsearch for local search
-- Or: Algolia DocSearch integration (if available)
+- Flexsearch for local documentation search
 
-Create utility functions shared with main app where applicable.
+These go into the existing frontend/package.json, not a separate project.
 ```
 
 ### Prompt 1.3 - Set Up Folder Structure
 
 ```
-Create the documentation site folder structure:
+Create the documentation folder structure WITHIN the existing frontend:
 
-For Nextra-based setup:
-docs-site/
-├── pages/
-│   ├── _app.tsx                 - App wrapper
-│   ├── _meta.json               - Navigation configuration
-│   ├── index.mdx                - Home/Introduction
+frontend/src/app/(docs)/
+├── docs/
+│   ├── layout.tsx               - Docs-specific layout (sidebar, no dashboard nav)
+│   ├── page.tsx                 - /docs (Introduction/Home)
 │   ├── getting-started/
-│   │   ├── _meta.json
-│   │   ├── overview.mdx
-│   │   ├── quickstart.mdx
-│   │   └── installation.mdx
+│   │   ├── page.mdx             - /docs/getting-started
+│   │   ├── quickstart/
+│   │   │   └── page.mdx         - /docs/getting-started/quickstart
+│   │   └── installation/
+│   │       └── page.mdx         - /docs/getting-started/installation
 │   ├── guides/
-│   │   ├── _meta.json
-│   │   ├── create-paymaster.mdx
-│   │   ├── fund-paymaster.mdx
-│   │   ├── whitelist-contracts.mdx
-│   │   └── sdk-integration.mdx
+│   │   ├── page.mdx             - /docs/guides
+│   │   ├── create-paymaster/
+│   │   ├── fund-paymaster/
+│   │   ├── whitelist-contracts/
+│   │   └── sdk-integration/
 │   ├── api-reference/
-│   │   ├── _meta.json
-│   │   ├── overview.mdx
-│   │   ├── endpoints.mdx
-│   │   └── errors.mdx
+│   │   ├── page.mdx
+│   │   ├── endpoints/
+│   │   └── errors/
 │   ├── sdk/
-│   │   ├── _meta.json
-│   │   ├── installation.mdx
-│   │   ├── client.mdx
-│   │   ├── signer.mdx
-│   │   └── examples.mdx
+│   │   ├── page.mdx
+│   │   ├── installation/
+│   │   ├── client/
+│   │   └── examples/
 │   └── contracts/
-│       ├── _meta.json
-│       ├── overview.mdx
-│       ├── relayer-hub.mdx
-│       ├── paymaster-factory.mdx
-│       └── paymaster.mdx
-├── components/
-│   ├── CodeBlock.tsx
-│   ├── Callout.tsx
-│   ├── Card.tsx
-│   ├── Tabs.tsx
-│   ├── ApiEndpoint.tsx
-│   └── Playground.tsx
-├── theme.config.tsx             - Nextra theme configuration
-├── public/
-└── styles/
+│       ├── page.mdx
+│       ├── relayer-hub/
+│       ├── paymaster-factory/
+│       └── paymaster/
 
-Each folder should have _meta.json defining page order and labels.
+frontend/src/components/docs/
+├── DocsLayout.tsx               - Layout with sidebar navigation
+├── DocsSidebar.tsx              - Left navigation sidebar
+├── DocsHeader.tsx               - Docs header with search
+├── DocsToc.tsx                  - Table of contents (right side)
+├── CodeBlock.tsx                - Enhanced code block
+├── Callout.tsx                  - Note/warning/tip callouts
+├── ApiEndpoint.tsx              - API documentation component
+└── mdx-components.tsx           - MDX component mapping
+
+This integrates with existing frontend structure, sharing:
+- /src/components/ui/* (shadcn components)
+- /src/lib/* (utilities)
+- /src/config/* (constants, theme)
+- Tailwind configuration
 ```
 
 ---
 
 ## Phase 2: Design System
 
-### Prompt 2.1 - Configure Documentation Theme
+### Prompt 2.1 - Create Documentation Layout
 
 ```
-Configure the documentation theme to match the main application aesthetic:
+Create the documentation layout that differs from the dashboard layout:
 
-Base theme: Dark mode as default with light mode option
+Location: frontend/src/app/(docs)/docs/layout.tsx
+
+Layout structure:
+- Header: Simplified header with logo, search bar, and links to dashboard
+- Sidebar (left): Navigation tree for all documentation pages
+- Content (center): Main content area with max-width for readability
+- TOC (right): Table of contents for current page on larger screens
+
+Reuse existing components where possible:
+- Use existing Button, Input components from shadcn/ui
+- Use existing theme colors from Tailwind config
+- Use same fonts (Inter, JetBrains Mono)
 
 Color scheme:
 - Background: Same dark as main app (#09090B)
@@ -177,20 +190,8 @@ Color scheme:
 - Code blocks: Darker than background (#0D0D0F)
 - Text: High contrast white (#FAFAFA)
 - Links: Primary indigo color
-- Headings: White with gradient option for H1
 
-Typography:
-- Body: Inter, 16px, 1.75 line height for readability
-- Headings: Inter Semi-Bold
-- Code inline: JetBrains Mono, slightly smaller
-- Code blocks: JetBrains Mono, 14px
-
-Spacing:
-- Content max-width: 800px for readability
-- Comfortable margins between sections
-- Adequate padding in code blocks
-
-The docs should feel like a natural extension of the main app, not a separate product.
+The docs should feel like a natural extension of the main app.
 ```
 
 ### Prompt 2.2 - Create Documentation-Specific Components
@@ -198,33 +199,33 @@ The docs should feel like a natural extension of the main app, not a separate pr
 ```
 Create custom MDX components for documentation:
 
+Location: frontend/src/components/docs/
+
 Components needed:
 
 1. CodeBlock (enhanced)
-   - Syntax highlighting
+   - Syntax highlighting with Shiki
    - Line numbers (toggleable)
    - Line highlighting
    - Filename display
-   - Copy button with feedback
+   - Copy button with feedback (reuse existing copy logic)
    - Language label
 
 2. Callout
    - Types: note, tip, warning, danger, info
    - Icon for each type
-   - Collapsible option
+   - Use existing Alert component as base if available
    - Styled border left accent
 
 3. Card/CardGrid
    - For feature highlights
-   - Icon, title, description
-   - Optional link
+   - Reuse existing Card component from shadcn/ui
    - Grid layout for multiple cards
 
 4. Tabs
    - For multiple code examples (React, Vue, etc.)
-   - For different versions/methods
+   - Reuse existing Tabs component from shadcn/ui
    - Persistent selection (localStorage)
-   - Smooth transitions
 
 5. Steps
    - Numbered step-by-step instructions
@@ -235,9 +236,8 @@ Components needed:
    - Method badge (GET, POST, etc.)
    - Endpoint path with parameters
    - Request/response examples
-   - Try it button (optional)
 
-Map these components to MDX for easy usage in content files.
+Create mdx-components.tsx to map these for MDX usage.
 ```
 
 ### Prompt 2.3 - Code Block Syntax Highlighting
