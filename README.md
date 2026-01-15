@@ -1,11 +1,8 @@
 # Mantle Gas-Less Relayer
 
-[![Mantle Network](https://img.shields.io/badge/Network-Mantle-50E3C2)](https://www.mantle.xyz/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 A production-grade gasless transaction system for the Mantle L2 network. This platform allows developers to sponsor user transactions, eliminating the need for end-users to hold MNT for gas fees, thereby significantly improving the onboarding experience and usability of dApps on Mantle.
 
-## 📋 Table of Contents
+##  Table of Contents
 
 - [Overview](#-overview)
 - [Architecture](#️-architecture)
@@ -19,9 +16,11 @@ A production-grade gasless transaction system for the Mantle L2 network. This pl
 
 ---
 
-## 🌟 Overview
+##  Overview
 
 The Mantle Gas-Less Relayer enables gasless transactions through a secure infrastructure. By utilizing EIP-712 signatures, users authorize transactions that are submitted to the blockchain by a relayer and paid for by a dedicated Paymaster contract.
+
+**Live Demo**: [https://frontend-nine-mocha.vercel.app/](https://frontend-nine-mocha.vercel.app/)
 
 ### Key Features
 - **Gasless Transactions**: Users sign messages, relayers pay the gas.
@@ -34,7 +33,7 @@ The Mantle Gas-Less Relayer enables gasless transactions through a secure infras
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### System Flow
 
@@ -58,7 +57,7 @@ graph TD
 
 ---
 
-## 📜 Smart Contracts
+## Smart Contracts
 
 The core logic resides in three main Solidity contracts:
 
@@ -85,7 +84,7 @@ The core logic resides in three main Solidity contracts:
 
 ---
 
-## ⚙️ Backend Relayer
+## Backend Relayer
 
 The backend is a production-grade service built with Fastify that handles the submission of meta-transactions to the Mantle network.
 
@@ -109,7 +108,7 @@ Required variables for the backend:
 
 ---
 
-## 📦 TypeScript SDK
+## TypeScript SDK
 
 The SDK provides a type-safe, fluent API for building, signing, and submitting meta-transactions.
 
@@ -139,7 +138,7 @@ console.log('TX Hash:', result.txHash);
 
 ---
 
-## 🖥️ Frontend Dashboard
+## Frontend Dashboard
 
 A Next.js-based dashboard for developers to manage their Paymasters, monitor gas usage, and configure whitelists.
 
@@ -150,7 +149,7 @@ A Next.js-based dashboard for developers to manage their Paymasters, monitor gas
 
 ---
 
-## 🛠️ Development & Quick Start
+##  Development & Quick Start
 
 ### Prerequisites
 - Node.js v18+
@@ -195,7 +194,7 @@ A Next.js-based dashboard for developers to manage their Paymasters, monitor gas
 
 ---
 
-## 🛡️ Security
+## Security
 
 - **EIP-712 Signing**: Ensures users know exactly what they are signing.
 - **Replay Protection**: Nonce-based management prevents transaction replays.
@@ -205,6 +204,6 @@ A Next.js-based dashboard for developers to manage their Paymasters, monitor gas
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
