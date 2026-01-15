@@ -23,6 +23,8 @@ import {
   Shield,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import { useSetSpendingLimits } from '@/lib/contracts';
 
 interface SpendingLimit {
   type: 'per-transaction' | 'daily' | 'monthly' | 'global';
@@ -258,13 +260,18 @@ function LimitCard({
   );
 }
 
-export function SpendingLimitsTab({ paymasterId: _paymasterId }: SpendingLimitsTabProps) {
-  // Note: paymasterId will be used for API calls in production
-  // Mock data - would come from API/blockchain
-  const [limits, setLimits] = useState<SpendingLimit[]>([
-    { type: 'per-transaction', value: 0.05 },
-    { type: 'daily', value: 100, used: 45 },
-    { type: 'monthly', value: 2000, used: 800 },
+export function SpendingLimitsTab({ paymasterId }: SpendingLimitsTabProps) {
+  const { toast } = useToast();
+  const paymasterAddress = paymasterId as `0x${string}`;
+  
+  // Contract hook for setting spending limits
+  const { setLimits, isPending, isConfirming } = useSetSpendingLimits(paymasterAddress);
+  
+  // Local state for UI - limits would ideally come from API/indexer
+  const [limits, setLocalLimits] = useState<SpendingLimit[]>([
+    { type: 'per-transaction', value: null },
+    { type: 'daily', value: null, used: 0 },
+    { type: 'monthly', value: null, used: 0 },
     { type: 'global', value: null },
   ]);
 
@@ -276,22 +283,51 @@ export function SpendingLimitsTab({ paymasterId: _paymasterId }: SpendingLimitsT
     inAppEnabled: true,
   });
 
+  const _isProcessing = isPending || isConfirming;
+
   const handleSaveLimit = async (type: SpendingLimit['type'], value: number) => {
-    // Simulate transaction
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    // Value is in MNT, pass as string
+    const valueStr = value.toString();
     
-    setLimits((prev) =>
+    // Build limits - use '0' for unchanged limits
+    const currentPerTx = limits.find(l => l.type === 'per-transaction')?.value?.toString() || '0';
+    const currentDaily = limits.find(l => l.type === 'daily')?.value?.toString() || '0';
+    const currentMonthly = limits.find(l => l.type === 'monthly')?.value?.toString() || '0';
+    const currentGlobal = limits.find(l => l.type === 'global')?.value?.toString() || '0';
+    
+    // Call contract with all limits
+    setLimits(
+      type === 'per-transaction' ? valueStr : currentPerTx,
+      type === 'daily' ? valueStr : currentDaily,
+      type === 'monthly' ? valueStr : currentMonthly,
+      type === 'global' ? valueStr : currentGlobal
+    );
+    
+    // Optimistically update local state
+    setLocalLimits((prev) =>
       prev.map((limit) =>
         limit.type === type ? { ...limit, value } : limit
       )
     );
+    
+    toast({ title: `Updating ${type} limit...` });
   };
 
   const handleRemoveLimit = async (type: SpendingLimit['type']) => {
-    // Simulate transaction
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    // Set limit to 0 (no limit)
+    const currentPerTx = limits.find(l => l.type === 'per-transaction')?.value?.toString() || '0';
+    const currentDaily = limits.find(l => l.type === 'daily')?.value?.toString() || '0';
+    const currentMonthly = limits.find(l => l.type === 'monthly')?.value?.toString() || '0';
+    const currentGlobal = limits.find(l => l.type === 'global')?.value?.toString() || '0';
     
-    setLimits((prev) =>
+    setLimits(
+      type === 'per-transaction' ? '0' : currentPerTx,
+      type === 'daily' ? '0' : currentDaily,
+      type === 'monthly' ? '0' : currentMonthly,
+      type === 'global' ? '0' : currentGlobal
+    );
+    
+    setLocalLimits((prev) =>
       prev.map((limit): SpendingLimit => {
         if (limit.type !== type) return limit;
         const newLimit: SpendingLimit = { type: limit.type, value: null };
@@ -299,6 +335,8 @@ export function SpendingLimitsTab({ paymasterId: _paymasterId }: SpendingLimitsT
         return newLimit;
       })
     );
+    
+    toast({ title: `Removing ${type} limit...` });
   };
 
   const perTxLimit = limits.find((l) => l.type === 'per-transaction');

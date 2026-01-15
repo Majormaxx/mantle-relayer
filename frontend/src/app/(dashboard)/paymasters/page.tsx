@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Plus, Search, SlidersHorizontal, ArrowUpDown, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +18,10 @@ import {
   PaymasterStatus,
 } from '@/components/paymaster/PaymasterCard';
 import { CreatePaymasterModal } from '@/components/paymaster/CreatePaymasterModal';
+import { FundPaymasterModal } from '@/components/paymaster/FundPaymasterModal';
 import { cn } from '@/lib/utils';
+import { usePaymastersWithData, useWalletMntBalance, usePaymasterPauseControl } from '@/lib/contracts';
+import { useToast } from '@/hooks/use-toast';
 
 type FilterOption = 'all' | 'active' | 'paused' | 'low-balance';
 type SortOption = 'recent' | 'name' | 'balance' | 'transactions';
@@ -34,46 +38,6 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'name', label: 'Name' },
   { value: 'balance', label: 'Balance' },
   { value: 'transactions', label: 'Transactions' },
-];
-
-// Mock data for demonstration
-const MOCK_PAYMASTERS: PaymasterCardData[] = [
-  {
-    id: '1',
-    address: '0x1234567890abcdef1234567890abcdef12345678',
-    name: 'Main Paymaster',
-    status: 'active',
-    balance: '45.50',
-    transactionCount: 1234,
-    uniqueUsers: 89,
-  },
-  {
-    id: '2',
-    address: '0xabcdef1234567890abcdef1234567890abcdef12',
-    name: 'NFT Minting',
-    status: 'low-balance',
-    balance: '2.10',
-    transactionCount: 567,
-    uniqueUsers: 45,
-  },
-  {
-    id: '3',
-    address: '0x9876543210fedcba9876543210fedcba98765432',
-    name: 'Gaming Paymaster',
-    status: 'active',
-    balance: '120.00',
-    transactionCount: 3456,
-    uniqueUsers: 234,
-  },
-  {
-    id: '4',
-    address: '0xfedcba9876543210fedcba9876543210fedcba98',
-    name: '',
-    status: 'paused',
-    balance: '0.00',
-    transactionCount: 12,
-    uniqueUsers: 5,
-  },
 ];
 
 function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
@@ -117,14 +81,21 @@ function NoResults({ searchQuery }: { searchQuery: string }) {
 }
 
 export default function PaymastersPage() {
+  const router = useRouter();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<FilterOption>('all');
   const [sort, setSort] = useState<SortOption>('recent');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isLoading] = useState(false);
+  const [fundingPaymaster, setFundingPaymaster] = useState<PaymasterCardData | null>(null);
+  const [pausingPaymaster, setPausingPaymaster] = useState<string | null>(null);
 
-  // For demo purposes, use mock data. In production, fetch from API
-  const [paymasters] = useState<PaymasterCardData[]>(MOCK_PAYMASTERS);
+  // Real data from contracts
+  const { paymasters, isLoading, refetch } = usePaymastersWithData();
+  const { balance: walletBalance } = useWalletMntBalance();
+  
+  // Pause/unpause control - we'll use this dynamically
+  const pauseControl = usePaymasterPauseControl(pausingPaymaster as `0x${string}` | undefined);
 
   // Filter and sort paymasters
   const filteredPaymasters = useMemo(() => {
@@ -164,18 +135,40 @@ export default function PaymastersPage() {
   }, [paymasters, searchQuery, filter, sort]);
 
   const handleFund = (id: string) => {
-    console.log('Fund paymaster:', id);
-    // TODO: Open fund modal
+    const paymaster = paymasters.find(p => p.id === id);
+    if (paymaster) {
+      setFundingPaymaster(paymaster);
+    }
   };
 
-  const handlePauseResume = (id: string, currentStatus: PaymasterStatus) => {
-    console.log('Toggle pause for:', id, 'Current status:', currentStatus);
-    // TODO: Implement pause/resume
+  const handlePauseResume = async (id: string, currentStatus: PaymasterStatus) => {
+    setPausingPaymaster(id);
+    try {
+      if (currentStatus === 'paused') {
+        pauseControl.unpause();
+        toast({ title: 'Resuming paymaster...', description: 'Please wait for the transaction to confirm' });
+      } else {
+        pauseControl.pause();
+        toast({ title: 'Pausing paymaster...', description: 'Please wait for the transaction to confirm' });
+      }
+    } catch (error) {
+      toast({ title: 'Failed to update paymaster status', variant: 'destructive' });
+      console.error(error);
+    } finally {
+      setPausingPaymaster(null);
+    }
   };
 
-  const handleCreateSuccess = (paymasterId: string) => {
-    console.log('Created paymaster:', paymasterId);
-    // TODO: Refresh list and navigate to new paymaster
+  const handleCreateSuccess = (paymasterAddress: string) => {
+    toast({ title: 'Paymaster created successfully!' });
+    refetch();
+    router.push(`/paymasters/${paymasterAddress}`);
+  };
+
+  const handleFundSuccess = () => {
+    toast({ title: 'Paymaster funded successfully!' });
+    setFundingPaymaster(null);
+    refetch();
   };
 
   const hasPaymasters = paymasters.length > 0;
@@ -288,8 +281,20 @@ export default function PaymastersPage() {
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleCreateSuccess}
-        walletBalance="100.00"
+        walletBalance={walletBalance}
       />
+
+      {/* Fund Paymaster Modal */}
+      {fundingPaymaster && (
+        <FundPaymasterModal
+          isOpen={!!fundingPaymaster}
+          onClose={() => setFundingPaymaster(null)}
+          onSuccess={handleFundSuccess}
+          paymasterAddress={fundingPaymaster.address as `0x${string}`}
+          paymasterName={fundingPaymaster.name || 'Paymaster'}
+          currentBalance={fundingPaymaster.balance}
+        />
+      )}
     </div>
   );
 }

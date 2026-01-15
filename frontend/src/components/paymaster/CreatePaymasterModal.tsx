@@ -24,6 +24,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useCreatePaymaster, useDeploymentFee } from '@/lib/contracts';
 
 interface CreatePaymasterModalProps {
   isOpen: boolean;
@@ -60,7 +61,6 @@ export function CreatePaymasterModal({
   walletBalance = '100.00',
 }: CreatePaymasterModalProps) {
   const [step, setStep] = useState<Step>(1);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -68,6 +68,20 @@ export function CreatePaymasterModal({
     fundingAmount: '',
     confirmed: false,
   });
+
+  // Contract hooks
+  const { fee: deploymentFee } = useDeploymentFee();
+  const { 
+    createPaymaster, 
+    isPending, 
+    isConfirming, 
+    isSuccess, 
+    error: txError,
+    receipt,
+    reset 
+  } = useCreatePaymaster();
+
+  const isLoading = isPending || isConfirming;
 
   // Reset form when modal closes
   useEffect(() => {
@@ -80,16 +94,44 @@ export function CreatePaymasterModal({
         confirmed: false,
       });
       setError(null);
-      setIsLoading(false);
+      reset();
     }
-  }, [isOpen]);
+  }, [isOpen, reset]);
+
+  // Handle successful creation
+  useEffect(() => {
+    if (isSuccess && receipt) {
+      // Extract paymaster address from receipt logs
+      const paymasterCreatedLog = receipt.logs.find(log => 
+        log.topics[0] // Check for PaymasterCreated event
+      );
+      
+      if (paymasterCreatedLog?.topics[1]) {
+        const createdAddress = `0x${paymasterCreatedLog.topics[1].slice(-40)}` as `0x${string}`;
+        onSuccess?.(createdAddress);
+        onClose();
+      } else {
+        // Fallback - just close and let parent refetch
+        onSuccess?.('');
+        onClose();
+      }
+    }
+  }, [isSuccess, receipt, onSuccess, onClose]);
+
+  // Handle errors
+  useEffect(() => {
+    if (txError) {
+      setError(txError.message || 'Transaction failed. Please try again.');
+    }
+  }, [txError]);
 
   const estimatedTransactions = formData.fundingAmount
     ? Math.floor(parseFloat(formData.fundingAmount) / ESTIMATED_GAS_PER_TX)
     : 0;
 
+  const actualDeploymentFee = deploymentFee || DEPLOYMENT_GAS_ESTIMATE;
   const totalCost = formData.fundingAmount
-    ? (parseFloat(formData.fundingAmount) + parseFloat(DEPLOYMENT_GAS_ESTIMATE)).toFixed(4)
+    ? (parseFloat(formData.fundingAmount) + parseFloat(actualDeploymentFee)).toFixed(4)
     : '0';
 
   const exceedsBalance =
@@ -109,28 +151,12 @@ export function CreatePaymasterModal({
     }
   };
 
-  const handleCreate = async () => {
+  const handleCreate = () => {
     if (!formData.confirmed) return;
-    
-    setIsLoading(true);
     setError(null);
-
-    try {
-      // Simulate wallet interaction
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
-      // Simulate deployment
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      // Success - generate a mock ID
-      const mockId = `pm_${Date.now()}`;
-      onSuccess?.(mockId);
-      onClose();
-    } catch {
-      setError('Transaction failed. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
+    
+    // Call the contract to create paymaster with initial funding
+    createPaymaster(formData.fundingAmount || undefined);
   };
 
   const canProceedStep1 = true; // Name and description are optional

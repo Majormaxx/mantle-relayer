@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { Wallet, Activity, TrendingUp, DollarSign, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,41 +12,10 @@ import {
   type ChartDataPoint,
   type Transaction,
   type TimeRange,
-  type OnboardingState,
 } from '@/components/dashboard';
 import Link from 'next/link';
-
-// Mock data generator for demo purposes
-function generateMockChartData(): ChartDataPoint[] {
-  const data: ChartDataPoint[] = [];
-  const now = new Date();
-  
-  for (let i = 90; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    data.push({
-      date: date.toISOString().split('T')[0],
-      count: Math.floor(Math.random() * 100) + 10,
-      gasUsed: Math.random() * 0.5 + 0.01,
-    });
-  }
-  return data;
-}
-
-function generateMockTransactions(): Transaction[] {
-  const types: Transaction['type'][] = ['Transfer', 'Approve', 'Mint', 'Swap'];
-  const statuses: Transaction['status'][] = ['success', 'success', 'success', 'failed'];
-  
-  return Array.from({ length: 10 }, (_, i) => ({
-    id: `tx-${i}`,
-    txHash: `0x${Math.random().toString(16).slice(2, 66)}`,
-    status: statuses[Math.floor(Math.random() * statuses.length)],
-    type: types[Math.floor(Math.random() * types.length)],
-    userAddress: `0x${Math.random().toString(16).slice(2, 42)}`,
-    gasCost: Math.random() * 0.01 + 0.001,
-    timestamp: new Date(Date.now() - Math.random() * 86400000 * 7),
-  }));
-}
+import { useAggregatedPaymasterStats } from '@/lib/contracts';
+import { useDashboardChart, useRecentTransactions, useOnboardingStatus } from '@/lib/api';
 
 // Truncate address helper
 function truncateAddress(address: string): string {
@@ -56,50 +25,90 @@ function truncateAddress(address: string): string {
 
 export default function DashboardPage() {
   const { address, isConnected } = useAccount();
-  const [loading, setLoading] = useState(true);
-  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
 
-  // Simulate data loading
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setChartData(generateMockChartData());
-      setTransactions(generateMockTransactions());
-      setLoading(false);
-    }, 1500);
+  // Real data hooks
+  const { 
+    totalBalance, 
+    activePaymasters, 
+    totalTransactions: contractTxCount,
+    isLoading: statsLoading 
+  } = useAggregatedPaymasterStats(address);
 
-    return () => clearTimeout(timer);
-  }, []);
+  const { 
+    data: chartData = [], 
+    isLoading: chartLoading 
+  } = useDashboardChart(timeRange);
 
-  // Mock stats - in production these would come from API
-  const stats = {
-    totalBalance: '12.5',
-    activePaymasters: 3,
-    totalTransactions: 1247,
-    transactionsTrend: 12.5,
-    monthlySpending: 156.42,
-    spendingTrend: -3.2,
-  };
+  const { 
+    data: transactions = [], 
+    isLoading: txLoading,
+    fetchNextPage,
+    hasNextPage 
+  } = useRecentTransactions(10);
 
-  // Mock onboarding state - in production this would come from API
-  // Set to false to show the onboarding checklist for demo
-  const onboardingState: OnboardingState = {
+  const { 
+    data: onboardingState,
+    isLoading: onboardingLoading 
+  } = useOnboardingStatus(address);
+
+  const loading = statsLoading || chartLoading || txLoading || onboardingLoading;
+
+  // Transform chart data to expected format
+  const formattedChartData: ChartDataPoint[] = (chartData as Array<{date: string; count: number; gasUsed: number}>).map((item) => ({
+    date: item.date,
+    count: item.count,
+    gasUsed: item.gasUsed,
+  }));
+
+  // Transform transactions to expected format
+  const formattedTransactions: Transaction[] = (transactions as Array<{
+    id: string;
+    hash: string;
+    status: string;
+    type: string;
+    userAddress: string;
+    gasCost: number;
+    createdAt: string;
+  }>).map((tx) => ({
+    id: tx.id,
+    txHash: tx.hash,
+    status: tx.status === 'success' ? 'success' : 'failed',
+    type: tx.type as Transaction['type'],
+    userAddress: tx.userAddress,
+    gasCost: tx.gasCost,
+    timestamp: new Date(tx.createdAt),
+  }));
+
+  // Default onboarding state if not loaded
+  const defaultOnboardingState = {
     hasPaymaster: false,
     hasFundedPaymaster: false,
     hasWhitelistedContract: false,
   };
 
+  const currentOnboardingState = onboardingState || defaultOnboardingState;
+
   // Check if user needs onboarding (not all steps complete)
-  const needsOnboarding = !onboardingState.hasPaymaster || 
-    !onboardingState.hasFundedPaymaster || 
-    !onboardingState.hasWhitelistedContract;
+  const needsOnboarding = !currentOnboardingState.hasPaymaster || 
+    !currentOnboardingState.hasFundedPaymaster || 
+    !currentOnboardingState.hasWhitelistedContract;
+
+  // Stats - use real data from contract
+  const stats = {
+    totalBalance: totalBalance || '0',
+    activePaymasters: activePaymasters || 0,
+    totalTransactions: contractTxCount || 0,
+    transactionsTrend: 0, // Would need historical data to calculate
+    monthlySpending: 0, // Would need to calculate from transactions
+    spendingTrend: 0,
+  };
 
   return (
     <div className="space-y-8">
       {/* Onboarding Checklist - only show if not all steps complete */}
       {needsOnboarding && (
-        <OnboardingChecklist state={onboardingState} />
+        <OnboardingChecklist state={currentOnboardingState} />
       )}
 
       {/* Welcome message */}
@@ -141,25 +150,25 @@ export default function DashboardPage() {
           value={stats.totalTransactions.toLocaleString()}
           icon={<TrendingUp className="h-5 w-5" />}
           iconColor="secondary"
-          trend={{ value: stats.transactionsTrend, direction: 'up' }}
+          trend={stats.transactionsTrend ? { value: stats.transactionsTrend, direction: 'up' } : undefined}
           loading={loading}
         />
         <StatCard
           title="This Month Spending"
-          value={`$${stats.monthlySpending.toFixed(2)}`}
+          value={`${stats.monthlySpending.toFixed(4)} MNT`}
           icon={<DollarSign className="h-5 w-5" />}
           iconColor="warning"
-          trend={{ 
+          trend={stats.spendingTrend ? { 
             value: Math.abs(stats.spendingTrend), 
             direction: stats.spendingTrend > 0 ? 'up' : 'down' 
-          }}
+          } : undefined}
           loading={loading}
         />
       </div>
 
       {/* Chart Section */}
       <TransactionVolumeChart
-        data={chartData}
+        data={formattedChartData}
         timeRange={timeRange}
         onTimeRangeChange={setTimeRange}
         loading={loading}
@@ -167,10 +176,10 @@ export default function DashboardPage() {
 
       {/* Recent Activity */}
       <RecentActivityFeed
-        transactions={transactions}
+        transactions={formattedTransactions}
         loading={loading}
-        hasMore={true}
-        onLoadMore={() => console.log('Load more clicked')}
+        hasMore={hasNextPage || false}
+        onLoadMore={() => fetchNextPage()}
         onTransactionClick={(tx) => console.log('Transaction clicked:', tx)}
       />
     </div>

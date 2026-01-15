@@ -21,6 +21,7 @@ import {
   Info,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useFundPaymaster, useWalletMntBalance } from '@/lib/contracts';
 
 // Dynamically import confetti to avoid SSR issues
 const triggerConfetti = () => {
@@ -42,11 +43,11 @@ const triggerConfetti = () => {
 interface FundPaymasterModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
   paymasterName: string;
-  paymasterAddress: string;
-  currentBalance: number;
+  paymasterAddress: `0x${string}`;
+  currentBalance: string;
   isFirstFunding?: boolean;
-  onFund: (amount: number) => Promise<void>;
 }
 
 type BalanceStatus = 'healthy' | 'low' | 'critical';
@@ -82,21 +83,24 @@ function getBalanceStatusBg(status: BalanceStatus): string {
 export function FundPaymasterModal({
   isOpen,
   onClose,
+  onSuccess,
   paymasterName,
   paymasterAddress,
   currentBalance,
   isFirstFunding = false,
-  onFund,
 }: FundPaymasterModalProps) {
   const [amount, setAmount] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [newBalance, setNewBalance] = useState<number | null>(null);
 
-  // Mock wallet balance
-  const walletBalance = 150.5;
+  // Contract hooks
+  const { fund, isPending, isConfirming, isSuccess, error: txError, reset } = useFundPaymaster(paymasterAddress);
+  const { balance: walletBalance } = useWalletMntBalance();
+
   const networkFee = 0.001;
+  const walletBalanceNum = parseFloat(walletBalance);
+  const currentBalanceNum = parseFloat(currentBalance);
   
   // Average gas cost per transaction (mock)
   const avgGasCost = 0.002;
@@ -104,9 +108,10 @@ export function FundPaymasterModal({
   const amountNum = parseFloat(amount) || 0;
   const totalCost = amountNum + networkFee;
   const estimatedTransactions = amountNum > 0 ? Math.floor(amountNum / avgGasCost) : 0;
-  const hasInsufficientBalance = totalCost > walletBalance;
+  const hasInsufficientBalance = totalCost > walletBalanceNum;
+  const isSubmitting = isPending || isConfirming;
 
-  const status = getBalanceStatus(currentBalance);
+  const status = getBalanceStatus(currentBalanceNum);
 
   // Reset on close
   useEffect(() => {
@@ -115,9 +120,32 @@ export function FundPaymasterModal({
       setError(null);
       setSuccess(false);
       setNewBalance(null);
-      setIsSubmitting(false);
+      reset();
     }
-  }, [isOpen]);
+  }, [isOpen, reset]);
+
+  // Handle transaction success
+  useEffect(() => {
+    if (isSuccess) {
+      const fundedAmount = parseFloat(amount) || 0;
+      setNewBalance(currentBalanceNum + fundedAmount);
+      setSuccess(true);
+      
+      // Trigger confetti on first funding
+      if (isFirstFunding) {
+        triggerConfetti();
+      }
+      
+      onSuccess?.();
+    }
+  }, [isSuccess, amount, currentBalanceNum, isFirstFunding, onSuccess]);
+
+  // Handle transaction errors
+  useEffect(() => {
+    if (txError) {
+      setError(txError.message || 'Transaction failed. Please try again.');
+    }
+  }, [txError]);
 
   const handleQuickAmount = (quickAmount: number) => {
     const newAmount = amountNum + quickAmount;
@@ -125,11 +153,11 @@ export function FundPaymasterModal({
   };
 
   const handleMax = () => {
-    const maxAmount = Math.max(0, walletBalance - networkFee);
+    const maxAmount = Math.max(0, walletBalanceNum - networkFee);
     setAmount(maxAmount.toFixed(2));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (amountNum <= 0) {
       setError('Please enter an amount');
       return;
@@ -140,23 +168,8 @@ export function FundPaymasterModal({
       return;
     }
 
-    setIsSubmitting(true);
     setError(null);
-
-    try {
-      await onFund(amountNum);
-      setNewBalance(currentBalance + amountNum);
-      setSuccess(true);
-      
-      // Trigger confetti on first funding
-      if (isFirstFunding) {
-        triggerConfetti();
-      }
-    } catch (err) {
-      setError('Transaction failed. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    fund(amount);
   };
 
   return (
@@ -185,7 +198,7 @@ export function FundPaymasterModal({
                 <div>
                   <p className="text-sm text-muted-foreground">Current Balance</p>
                   <p className={cn('text-2xl font-bold', getBalanceStatusColor(status))}>
-                    {currentBalance.toFixed(4)} MNT
+                    {currentBalanceNum.toFixed(4)} MNT
                   </p>
                 </div>
                 <div
@@ -246,7 +259,7 @@ export function FundPaymasterModal({
 
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <Wallet className="h-3 w-3" />
-                Wallet balance: {walletBalance.toFixed(2)} MNT
+                Wallet balance: {walletBalanceNum.toFixed(2)} MNT
               </p>
             </div>
 
@@ -303,7 +316,7 @@ export function FundPaymasterModal({
                 <div>
                   <p className="text-sm font-medium text-error">Insufficient Balance</p>
                   <p className="text-xs text-muted-foreground">
-                    You need {(totalCost - walletBalance).toFixed(4)} more MNT to complete this deposit.
+                    You need {(totalCost - walletBalanceNum).toFixed(4)} more MNT to complete this deposit.
                   </p>
                 </div>
               </div>

@@ -34,6 +34,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { AddContractModal } from './AddContractModal';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import { useWhitelistControl } from '@/lib/contracts';
 
 export type ContractType = 'ERC-20' | 'ERC-721' | 'ERC-1155' | 'Custom';
 
@@ -62,41 +64,6 @@ const CONTRACT_TYPE_COLORS: Record<ContractType, string> = {
   'ERC-1155': 'bg-orange-500/10 text-orange-400 border-orange-500/20',
   'Custom': 'bg-gray-500/10 text-gray-400 border-gray-500/20',
 };
-
-// Mock data for demonstration
-const MOCK_CONTRACTS: WhitelistedContract[] = [
-  {
-    address: '0x1234567890abcdef1234567890abcdef12345678',
-    name: 'GameToken',
-    type: 'ERC-20',
-    functions: [
-      { selector: '0xa9059cbb', signature: 'transfer(address,uint256)', name: 'transfer' },
-      { selector: '0x095ea7b3', signature: 'approve(address,uint256)', name: 'approve' },
-    ],
-    verified: true,
-    addedAt: '2026-01-10T10:00:00Z',
-  },
-  {
-    address: '0xabcdef1234567890abcdef1234567890abcdef12',
-    name: 'GameNFT',
-    type: 'ERC-721',
-    functions: [
-      { selector: '0x23b872dd', signature: 'transferFrom(address,address,uint256)', name: 'transferFrom' },
-      { selector: '0x42842e0e', signature: 'safeTransferFrom(address,address,uint256)', name: 'safeTransferFrom' },
-      { selector: '0x40c10f19', signature: 'mint(address,uint256)', name: 'mint' },
-    ],
-    verified: true,
-    addedAt: '2026-01-12T14:30:00Z',
-  },
-  {
-    address: '0x9876543210fedcba9876543210fedcba98765432',
-    name: '',
-    type: 'Custom',
-    functions: [],
-    verified: false,
-    addedAt: '2026-01-14T08:00:00Z',
-  },
-];
 
 function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -264,26 +231,56 @@ function EmptyState({ onAddClick }: { onAddClick: () => void }) {
 }
 
 export function WhitelistTab({ paymasterId }: WhitelistTabProps) {
-  const [contracts, setContracts] = useState<WhitelistedContract[]>(MOCK_CONTRACTS);
+  const { toast } = useToast();
+  const paymasterAddress = paymasterId as `0x${string}`;
+  
+  // Contract hooks for whitelist management
+  const { 
+    addContract, 
+    removeContract, 
+    addFunctions,
+    isPending,
+    isConfirming,
+  } = useWhitelistControl(paymasterAddress);
+
+  // Local state for UI - in production this would come from an API/subgraph
+  const [contracts, setContracts] = useState<WhitelistedContract[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [contractToRemove, setContractToRemove] = useState<WhitelistedContract | null>(null);
   const [isLoading] = useState(false);
 
+  const _isProcessing = isPending || isConfirming;
+
   const handleAddContract = (contract: WhitelistedContract) => {
+    // Call contract to whitelist the contract address
+    addContract(contract.address);
+    
+    // Optimistically add to local state
     setContracts([...contracts, contract]);
-    console.log('Add contract to paymaster:', paymasterId, contract);
+    toast({ title: `Adding ${contract.name || 'contract'} to whitelist...` });
+    
+    // If functions are specified, whitelist them too
+    if (contract.functions.length > 0) {
+      const selectors = contract.functions.map(fn => fn.selector as `0x${string}`);
+      addFunctions(contract.address, selectors);
+    }
   };
 
   const handleRemoveContract = () => {
     if (contractToRemove) {
+      // Call contract to remove from whitelist
+      removeContract(contractToRemove.address);
+      
+      // Optimistically remove from local state
       setContracts(contracts.filter((c) => c.address !== contractToRemove.address));
+      toast({ title: `Removing ${contractToRemove.name || 'contract'} from whitelist...` });
       setContractToRemove(null);
     }
   };
 
   const handleEditContract = (contract: WhitelistedContract) => {
     console.log('Edit contract:', contract.address);
-    // TODO: Open edit modal
+    // TODO: Open edit modal to add/remove functions
   };
 
   if (isLoading) {

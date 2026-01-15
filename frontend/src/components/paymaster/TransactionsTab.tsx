@@ -44,17 +44,18 @@ import {
   Code,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
+import { useTransactions } from '@/lib/api';
 
 interface Transaction {
   hash: string;
   status: 'success' | 'failed';
   userAddress: string;
   targetContract: string;
-  contractName?: string;
+  contractName?: string | undefined;
   functionCalled: string;
   gasUsed: number;
   timestamp: string;
-  callData?: string;
+  callData?: string | undefined;
 }
 
 interface TransactionsTabProps {
@@ -65,41 +66,6 @@ type SortField = 'timestamp' | 'gasUsed' | 'status';
 type SortDirection = 'asc' | 'desc';
 
 const ITEMS_PER_PAGE = 25;
-
-// Mock transaction data
-function generateMockTransactions(count: number): Transaction[] {
-  const functions = ['transfer', 'approve', 'mint', 'transferFrom', 'swap', 'stake'];
-  const contracts = [
-    { address: '0x1234567890abcdef1234567890abcdef12345678', name: 'GameToken' },
-    { address: '0xabcdef1234567890abcdef1234567890abcdef12', name: 'CoolNFT' },
-    { address: '0x9876543210fedcba9876543210fedcba98765432', name: null },
-  ];
-
-  return Array.from({ length: count }, (_, i) => {
-    const contract = contracts[i % contracts.length] ?? contracts[0]!;
-    const fn = functions[i % functions.length] ?? 'transfer';
-    const isSuccess = Math.random() > 0.1;
-    const date = new Date();
-    date.setMinutes(date.getMinutes() - i * 5);
-
-    const tx: Transaction = {
-      hash: `0x${Math.random().toString(16).slice(2)}${Math.random().toString(16).slice(2)}`.slice(0, 66),
-      status: isSuccess ? 'success' : 'failed',
-      userAddress: `0x${Math.random().toString(16).slice(2, 42)}`,
-      targetContract: contract.address,
-      functionCalled: fn,
-      gasUsed: 0.001 + Math.random() * 0.01,
-      timestamp: date.toISOString(),
-      callData: `0x${Math.random().toString(16).slice(2)}${Math.random().toString(16).slice(2)}`.slice(0, 130),
-    };
-    
-    if (contract.name) {
-      tx.contractName = contract.name;
-    }
-    
-    return tx;
-  });
-}
 
 function TransactionDetailModal({
   transaction,
@@ -283,8 +249,7 @@ function TableSkeleton() {
   );
 }
 
-export function TransactionsTab({ paymasterId: _paymasterId }: TransactionsTabProps) {
-  // Note: paymasterId will be used for API calls in production
+export function TransactionsTab({ paymasterId }: TransactionsTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'failed'>('all');
   const [sortField, setSortField] = useState<SortField>('timestamp');
@@ -292,31 +257,37 @@ export function TransactionsTab({ paymasterId: _paymasterId }: TransactionsTabPr
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-  const [isLoading] = useState(false);
 
-  // Mock data
-  const allTransactions = useMemo(() => generateMockTransactions(100), []);
+  // Fetch transactions from API
+  const { data, isLoading } = useTransactions({
+    paymasterId,
+    page: currentPage,
+    limit: ITEMS_PER_PAGE,
+    status: statusFilter,
+    search: searchQuery,
+  });
 
-  // Filter and sort
+  // Transform API response to local format
+  const allTransactions: Transaction[] = useMemo(() => {
+    if (!data?.transactions) return [];
+    return data.transactions.map((tx) => ({
+      hash: tx.hash,
+      status: tx.status === 'success' ? 'success' as const : 'failed' as const,
+      userAddress: tx.userAddress,
+      targetContract: tx.targetContract,
+      contractName: tx.targetContractName,
+      functionCalled: tx.functionName || tx.functionSelector,
+      gasUsed: parseFloat(tx.gasUsed) / 1e18,
+      timestamp: tx.createdAt,
+      callData: undefined, // Not included in API response
+    }));
+  }, [data]);
+
+  // Local sorting (API pagination is already applied)
   const filteredTransactions = useMemo(() => {
-    let result = [...allTransactions];
+    const result = [...allTransactions];
 
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (tx) =>
-          tx.hash.toLowerCase().includes(query) ||
-          tx.userAddress.toLowerCase().includes(query)
-      );
-    }
-
-    // Status filter
-    if (statusFilter !== 'all') {
-      result = result.filter((tx) => tx.status === statusFilter);
-    }
-
-    // Sort
+    // Sort locally
     result.sort((a, b) => {
       let comparison = 0;
       switch (sortField) {
@@ -334,14 +305,11 @@ export function TransactionsTab({ paymasterId: _paymasterId }: TransactionsTabPr
     });
 
     return result;
-  }, [allTransactions, searchQuery, statusFilter, sortField, sortDirection]);
+  }, [allTransactions, sortField, sortDirection]);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
-  const paginatedTransactions = filteredTransactions.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
+  // Pagination from API response
+  const totalPages = data?.totalPages || 1;
+  const paginatedTransactions = filteredTransactions;
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {

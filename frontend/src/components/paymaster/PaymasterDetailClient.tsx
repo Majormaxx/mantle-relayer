@@ -28,21 +28,16 @@ import { SpendingLimitsTab } from './SpendingLimitsTab';
 import { TransactionsTab } from './TransactionsTab';
 import { FundPaymasterModal } from './FundPaymasterModal';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  usePaymasterBalance, 
+  usePaymasterAnalytics, 
+  usePaymasterPaused,
+  usePaymasterPauseControl 
+} from '@/lib/contracts';
+import { useTransactions, useAnalyticsChart } from '@/lib/api';
 
 export type PaymasterStatus = 'active' | 'paused' | 'low-balance';
-
-interface PaymasterDetailData {
-  id: string;
-  address: `0x${string}`;
-  name: string;
-  description?: string;
-  status: PaymasterStatus;
-  balance: string;
-  totalTransactions: number;
-  transactionsTrend: number;
-  uniqueUsers: number;
-  totalGasSpent: string;
-}
 
 interface PaymasterDetailClientProps {
   paymasterId: string;
@@ -73,86 +68,79 @@ function truncateAddress(address: string): string {
   return `${address.slice(0, 10)}...${address.slice(-8)}`;
 }
 
-// Mock data for demonstration
-const MOCK_PAYMASTER: PaymasterDetailData = {
-  id: '1',
-  address: '0x1234567890abcdef1234567890abcdef12345678',
-  name: 'Main Paymaster',
-  description: 'Primary paymaster for sponsoring game transactions',
-  status: 'active',
-  balance: '45.50',
-  totalTransactions: 1234,
-  transactionsTrend: 12.5,
-  uniqueUsers: 89,
-  totalGasSpent: '23.45',
-};
-
-// Generate mock chart data
-function generateMockChartData(): Array<{ date: string; count: number; gasUsed: number }> {
-  const data: Array<{ date: string; count: number; gasUsed: number }> = [];
-  const now = new Date();
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    data.push({
-      date: date.toISOString().split('T')[0] as string,
-      count: Math.floor(Math.random() * 100) + 20,
-      gasUsed: Math.random() * 2 + 0.5,
-    });
-  }
-  return data;
-}
-
-type TransactionType = 'Transfer' | 'Approve' | 'Mint' | 'Swap' | 'Other';
-type TransactionStatus = 'success' | 'failed' | 'pending';
-
-interface MockTransaction {
-  id: string;
-  txHash: string;
-  status: TransactionStatus;
-  type: TransactionType;
-  gasCost: number;
-  userAddress: string;
-  timestamp: Date;
-}
-
-// Generate mock transactions
-function generateMockTransactions(): MockTransaction[] {
-  const types: TransactionType[] = ['Transfer', 'Approve', 'Mint', 'Swap', 'Other'];
-  const statuses: TransactionStatus[] = ['success', 'success', 'success', 'failed'];
-  const transactions: MockTransaction[] = [];
-  
-  for (let i = 0; i < 5; i++) {
-    const typeIndex = Math.floor(Math.random() * types.length);
-    const statusIndex = Math.floor(Math.random() * statuses.length);
-    transactions.push({
-      id: `tx-${i}`,
-      txHash: `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`,
-      type: types[typeIndex] ?? 'Transfer',
-      status: statuses[statusIndex] ?? 'success',
-      gasCost: parseFloat((Math.random() * 0.01).toFixed(4)),
-      userAddress: `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`,
-      timestamp: new Date(Date.now() - Math.random() * 3600000 * 24),
-    });
-  }
-  return transactions;
-}
+// Low balance threshold in MNT
+const LOW_BALANCE_THRESHOLD = 0.1;
 
 export function PaymasterDetailClient({ paymasterId }: PaymasterDetailClientProps) {
+  const { toast } = useToast();
   const [copied, setCopied] = useState(false);
-  const [isLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [isFundModalOpen, setIsFundModalOpen] = useState(false);
   
-  // In production, fetch this from API using paymasterId
-  const paymaster = MOCK_PAYMASTER;
-  const chartData = generateMockChartData();
-  const transactions = generateMockTransactions();
-  const status = statusConfig[paymaster.status];
+  // Ensure paymasterId is a valid address
+  const paymasterAddress = paymasterId as `0x${string}`;
+
+  // Contract data hooks
+  const { balance, isLoading: balanceLoading, refetch: refetchBalance } = usePaymasterBalance(paymasterAddress);
+  const { analytics, isLoading: analyticsLoading } = usePaymasterAnalytics(paymasterAddress);
+  const { isPaused, isLoading: pausedLoading } = usePaymasterPaused(paymasterAddress);
+  const { pause, unpause, isPending: pausePending, isConfirming: pauseConfirming } = usePaymasterPauseControl(paymasterAddress);
+  
+  // API data hooks
+  const { data: transactionsData, isLoading: txLoading } = useTransactions({ paymasterId, limit: 5 });
+  const { data: chartData = [], isLoading: chartLoading } = useAnalyticsChart({ paymasterId, timeRange: '7d' });
+
+  const isLoading = balanceLoading || analyticsLoading || pausedLoading;
+  const isPauseLoading = pausePending || pauseConfirming;
+
+  // Determine status
+  const getStatus = (): PaymasterStatus => {
+    if (isPaused) return 'paused';
+    const balanceNum = parseFloat(balance || '0');
+    if (balanceNum < LOW_BALANCE_THRESHOLD) return 'low-balance';
+    return 'active';
+  };
+
+  const currentStatus = getStatus();
+  const statusInfo = statusConfig[currentStatus];
+
+  // Parse analytics data
+  const totalTransactions = Number(analytics?.totalTransactions || 0);
+  const uniqueUsers = Number(analytics?.uniqueUsers || 0);
+  const totalGasSpent = analytics?.totalGasSpent 
+    ? (parseFloat(analytics.totalGasSpent) / 1e18).toFixed(4) 
+    : '0';
+
+  // Format transactions for the feed
+  const transactions = (transactionsData?.transactions || []).map((tx: { 
+    id: string; 
+    hash: string; 
+    status: string; 
+    functionName?: string; 
+    gasUsed?: string; 
+    userAddress: string; 
+    createdAt: string 
+  }) => ({
+    id: tx.id,
+    txHash: tx.hash,
+    status: tx.status === 'success' ? 'success' as const : 'failed' as const,
+    type: (tx.functionName || 'Other') as 'Transfer' | 'Approve' | 'Mint' | 'Swap' | 'Other',
+    gasCost: tx.gasUsed ? parseFloat(tx.gasUsed) / 1e18 : 0,
+    userAddress: tx.userAddress,
+    timestamp: new Date(tx.createdAt),
+  }));
+
+  // Format chart data
+  const formattedChartData = (chartData || []).map((item) => ({
+    date: item.date,
+    count: item.transactions,
+    gasUsed: parseFloat(item.gasUsed),
+  }));
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(paymaster.address);
+    await navigator.clipboard.writeText(paymasterAddress);
     setCopied(true);
+    toast({ title: 'Address copied to clipboard' });
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -160,20 +148,22 @@ export function PaymasterDetailClient({ paymasterId }: PaymasterDetailClientProp
     setIsFundModalOpen(true);
   };
 
-  const handleFundPaymaster = async (amount: number) => {
-    console.log('Funding paymaster with:', amount, 'MNT');
-    // TODO: Implement actual funding transaction
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    // In production, this would call the SDK to fund the paymaster
+  const handleFundSuccess = () => {
+    refetchBalance();
+    toast({ title: 'Paymaster funded successfully!' });
   };
 
   const handlePauseResume = () => {
-    console.log('Toggle pause for:', paymasterId);
-    // TODO: Implement pause/resume
+    if (isPaused) {
+      unpause();
+      toast({ title: 'Resuming paymaster...' });
+    } else {
+      pause();
+      toast({ title: 'Pausing paymaster...' });
+    }
   };
 
-  const explorerUrl = `https://sepolia.mantlescan.xyz/address/${paymaster.address}`;
+  const explorerUrl = `https://sepolia.mantlescan.xyz/address/${paymasterAddress}`;
 
   if (isLoading) {
     return <PaymasterDetailSkeleton />;
@@ -195,7 +185,7 @@ export function PaymasterDetailClient({ paymasterId }: PaymasterDetailClientProp
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-foreground">
-              {paymaster.name || 'Unnamed Paymaster'}
+              Paymaster
             </h1>
             <button className="p-1 text-muted-foreground hover:text-foreground transition-colors">
               <Edit2 className="h-4 w-4" />
@@ -203,16 +193,16 @@ export function PaymasterDetailClient({ paymasterId }: PaymasterDetailClientProp
             <span
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium',
-                status.bgColor
+                statusInfo.bgColor
               )}
             >
-              <span className={cn('h-1.5 w-1.5 rounded-full', status.color)} />
-              {status.label}
+              <span className={cn('h-1.5 w-1.5 rounded-full', statusInfo.color)} />
+              {statusInfo.label}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm text-muted-foreground">
-              {truncateAddress(paymaster.address)}
+              {truncateAddress(paymasterAddress)}
             </span>
             <button
               onClick={handleCopy}
@@ -243,8 +233,12 @@ export function PaymasterDetailClient({ paymasterId }: PaymasterDetailClientProp
             <DollarSign className="h-4 w-4 mr-2" />
             Fund
           </Button>
-          <Button variant="outline" onClick={handlePauseResume}>
-            {paymaster.status === 'paused' ? (
+          <Button 
+            variant="outline" 
+            onClick={handlePauseResume}
+            disabled={isPauseLoading}
+          >
+            {isPaused ? (
               <>
                 <Play className="h-4 w-4 mr-2" />
                 Resume
@@ -266,27 +260,26 @@ export function PaymasterDetailClient({ paymasterId }: PaymasterDetailClientProp
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Balance"
-          value={`${paymaster.balance} MNT`}
+          value={`${balance || '0'} MNT`}
           icon={<Wallet className="h-5 w-5" />}
           iconColor="primary"
           onClick={handleFund}
         />
         <StatCard
           title="Transactions"
-          value={paymaster.totalTransactions.toLocaleString()}
+          value={totalTransactions.toLocaleString()}
           icon={<Activity className="h-5 w-5" />}
           iconColor="secondary"
-          trend={{ value: paymaster.transactionsTrend, direction: 'up' }}
         />
         <StatCard
           title="Unique Users"
-          value={paymaster.uniqueUsers.toLocaleString()}
+          value={uniqueUsers.toLocaleString()}
           icon={<Users className="h-5 w-5" />}
           iconColor="success"
         />
         <StatCard
           title="Gas Spent"
-          value={`${paymaster.totalGasSpent} MNT`}
+          value={`${totalGasSpent} MNT`}
           icon={<TrendingUp className="h-5 w-5" />}
           iconColor="warning"
         />
@@ -332,9 +325,10 @@ export function PaymasterDetailClient({ paymasterId }: PaymasterDetailClientProp
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
               <TransactionVolumeChart
-                data={chartData}
+                data={formattedChartData}
                 timeRange="7d"
                 onTimeRangeChange={() => {}}
+                loading={chartLoading}
               />
             </div>
             <div>
@@ -342,6 +336,7 @@ export function PaymasterDetailClient({ paymasterId }: PaymasterDetailClientProp
                 transactions={transactions}
                 onLoadMore={() => {}}
                 hasMore={false}
+                loading={txLoading}
               />
             </div>
           </div>
@@ -374,10 +369,10 @@ export function PaymasterDetailClient({ paymasterId }: PaymasterDetailClientProp
       <FundPaymasterModal
         isOpen={isFundModalOpen}
         onClose={() => setIsFundModalOpen(false)}
-        paymasterName={paymaster.name}
-        paymasterAddress={paymaster.address}
-        currentBalance={parseFloat(paymaster.balance)}
-        onFund={handleFundPaymaster}
+        paymasterName="Paymaster"
+        paymasterAddress={paymasterAddress}
+        currentBalance={balance || '0'}
+        onSuccess={handleFundSuccess}
       />
     </div>
   );
