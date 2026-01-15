@@ -1,0 +1,132 @@
+# Create Paymaster
+
+Learn how to deploy and configure your own paymaster contract to sponsor transactions for your users.
+
+## Overview
+
+A paymaster is a smart contract that holds MNT and pays gas fees on behalf of users. Each paymaster is owned by its creator and can be configured with whitelists and spending limits.
+
+## Creating via Dashboard
+
+The easiest way to create a paymaster:
+
+1. Navigate to [Dashboard → Paymasters](/paymasters)
+2. Click the **Create Paymaster** button
+3. (Optional) Add initial funding in MNT
+4. Confirm the transaction in your wallet
+
+<Callout type="info">
+  Creating a paymaster requires a small gas fee. The paymaster contract is deployed to Mantle and you become the owner.
+</Callout>
+
+## Creating via SDK
+
+```typescript
+import { PaymasterClient } from '@mantle-relayer/sdk';
+import { createWalletClient, custom, parseEther } from 'viem';
+import { mantleSepolia } from 'viem/chains';
+
+const walletClient = createWalletClient({
+  chain: mantleSepolia,
+  transport: custom(window.ethereum),
+});
+
+const paymasterClient = new PaymasterClient({
+  rpcUrl: 'https://rpc.sepolia.mantle.xyz',
+  factoryAddress: '0x4F5f7aBa739cB54BEdc6b7a6B9615DAeDc3A26A4',
+});
+
+// Create with initial funding of 5 MNT
+const { paymasterAddress, txHash } = await paymasterClient.createPaymaster({
+  walletClient,
+  initialFunding: parseEther('5'),
+});
+
+console.log('Paymaster deployed at:', paymasterAddress);
+```
+
+## Creating with Configuration
+
+You can create a paymaster with initial configuration in a single transaction:
+
+```typescript
+const { paymasterAddress } = await paymasterClient.createPaymasterWithConfig({
+  walletClient,
+  initialFunding: parseEther('10'),
+  whitelistedContracts: [
+    '0xNftContract...',
+    '0xGameContract...',
+  ],
+  dailyLimit: parseEther('5'),
+  monthlyLimit: parseEther('50'),
+});
+```
+
+## Creating via Smart Contract
+
+Interact directly with the PaymasterFactory contract:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+interface IPaymasterFactory {
+    function createPaymaster() external payable returns (address);
+    
+    function createPaymasterWithConfig(
+        uint256 initialDeposit,
+        address[] calldata whitelistedContracts,
+        uint256 dailyLimit,
+        uint256 monthlyLimit
+    ) external payable returns (address);
+}
+
+contract MyContract {
+    IPaymasterFactory constant factory = 
+        IPaymasterFactory(0x4F5f7aBa739cB54BEdc6b7a6B9615DAeDc3A26A4);
+    
+    function deployPaymaster() external payable {
+        // Create with initial funding
+        address paymaster = factory.createPaymaster{value: msg.value}();
+    }
+}
+```
+
+## Configuration Options
+
+After creating a paymaster, you can configure:
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| Whitelisted Contracts | Contracts the paymaster will sponsor | None (must add) |
+| Daily Limit | Maximum MNT spent per day | Unlimited |
+| Monthly Limit | Maximum MNT spent per month | Unlimited |
+| Paused | Whether the paymaster accepts requests | Active |
+
+## Post-Creation Checklist
+
+After creating your paymaster:
+
+1. ✅ **Fund it** - Add MNT for gas sponsorship
+2. ✅ **Whitelist contracts** - Add contracts you want to sponsor
+3. ✅ **Set limits** - Configure spending limits for protection
+4. ✅ **Test** - Send a test transaction to verify setup
+
+<Callout type="warning">
+  Your paymaster won't work until you add at least one whitelisted contract and fund it with MNT.
+</Callout>
+
+## Next Steps
+
+<DocCardGrid>
+  <DocCard
+    title="Fund Paymaster"
+    description="Add MNT to your paymaster for gas sponsorship."
+    href="/docs/guides/fund-paymaster"
+  />
+  <DocCard
+    title="Whitelist Contracts"
+    description="Control which contracts your paymaster sponsors."
+    href="/docs/guides/whitelist-contracts"
+  />
+</DocCardGrid>

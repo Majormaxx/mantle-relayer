@@ -1,0 +1,305 @@
+# SDK Examples
+
+Practical examples showing how to use the Mantle Relayer SDK.
+
+## Basic Transaction
+
+Send a simple gasless transaction:
+
+```typescript
+import { RelayerClient } from '@mantle-relayer/sdk';
+import { createWalletClient, custom, encodeFunctionData } from 'viem';
+import { mantleSepolia } from 'viem/chains';
+
+const client = new RelayerClient({
+  rpcUrl: 'https://rpc.sepolia.mantle.xyz',
+  relayerUrl: 'https://mantle-relayer-production.up.railway.app',
+  paymasterAddress: '0xYourPaymaster',
+});
+
+const walletClient = createWalletClient({
+  chain: mantleSepolia,
+  transport: custom(window.ethereum),
+});
+
+const [address] = await walletClient.getAddresses();
+
+const request = {
+  from: address,
+  to: '0xContract' as `0x${string}`,
+  data: encodeFunctionData({
+    abi: contractAbi,
+    functionName: 'transfer',
+    args: [recipient, amount],
+  }),
+};
+
+const signature = await client.signMetaTransaction(walletClient, request);
+const txHash = await client.sendTransaction(request, signature);
+```
+
+## NFT Minting
+
+Gasless NFT minting example:
+
+```typescript
+const nftAbi = [
+  {
+    name: 'mint',
+    type: 'function',
+    inputs: [{ name: 'to', type: 'address' }],
+    outputs: [{ name: 'tokenId', type: 'uint256' }],
+  },
+] as const;
+
+async function mintNft(to: string) {
+  const request = {
+    from: address,
+    to: nftContractAddress,
+    data: encodeFunctionData({
+      abi: nftAbi,
+      functionName: 'mint',
+      args: [to],
+    }),
+  };
+
+  const signature = await client.signMetaTransaction(walletClient, request);
+  const txHash = await client.sendTransaction(request, signature);
+  
+  const receipt = await client.waitForTransaction(txHash);
+  return receipt;
+}
+```
+
+## Token Approval
+
+Make ERC-20 approvals gasless:
+
+```typescript
+import { maxUint256 } from 'viem';
+
+const erc20Abi = [
+  {
+    name: 'approve',
+    type: 'function',
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+  },
+] as const;
+
+async function approveToken(
+  tokenAddress: string,
+  spenderAddress: string,
+  amount: bigint = maxUint256
+) {
+  const request = {
+    from: address,
+    to: tokenAddress as `0x${string}`,
+    data: encodeFunctionData({
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [spenderAddress, amount],
+    }),
+  };
+
+  const signature = await client.signMetaTransaction(walletClient, request);
+  return client.sendTransaction(request, signature);
+}
+```
+
+## Batch Operations
+
+Send multiple transactions:
+
+```typescript
+async function batchMint(recipients: string[]) {
+  const results = [];
+
+  for (const recipient of recipients) {
+    const request = {
+      from: address,
+      to: nftContractAddress,
+      data: encodeFunctionData({
+        abi: nftAbi,
+        functionName: 'mint',
+        args: [recipient],
+      }),
+    };
+
+    const signature = await client.signMetaTransaction(walletClient, request);
+    const txHash = await client.sendTransaction(request, signature);
+    
+    results.push({ recipient, txHash });
+  }
+
+  // Wait for all confirmations
+  const receipts = await Promise.all(
+    results.map(r => client.waitForTransaction(r.txHash))
+  );
+
+  return receipts;
+}
+```
+
+## React Hook Example
+
+Custom hook for gasless transactions:
+
+```typescript
+import { useState, useCallback } from 'react';
+import { useWalletClient } from 'wagmi';
+import { RelayerClient } from '@mantle-relayer/sdk';
+import { encodeFunctionData } from 'viem';
+
+const client = new RelayerClient({
+  rpcUrl: process.env.NEXT_PUBLIC_RPC_URL!,
+  relayerUrl: process.env.NEXT_PUBLIC_RELAYER_URL!,
+  paymasterAddress: process.env.NEXT_PUBLIC_PAYMASTER!,
+});
+
+export function useGasless() {
+  const { data: walletClient } = useWalletClient();
+  const [state, setState] = useState({
+    isPending: false,
+    isConfirming: false,
+    txHash: null as string | null,
+    error: null as Error | null,
+  });
+
+  const execute = useCallback(
+    async (config: {
+      to: `0x${string}`;
+      abi: any;
+      functionName: string;
+      args?: any[];
+    }) => {
+      if (!walletClient) throw new Error('Not connected');
+
+      setState(s => ({ ...s, isPending: true, error: null }));
+
+      try {
+        const [address] = await walletClient.getAddresses();
+        
+        const request = {
+          from: address,
+          to: config.to,
+          data: encodeFunctionData({
+            abi: config.abi,
+            functionName: config.functionName,
+            args: config.args ?? [],
+          }),
+        };
+
+        const signature = await client.signMetaTransaction(walletClient, request);
+        const txHash = await client.sendTransaction(request, signature);
+        
+        setState(s => ({ ...s, isPending: false, isConfirming: true, txHash }));
+
+        const receipt = await client.waitForTransaction(txHash);
+        
+        setState(s => ({ ...s, isConfirming: false }));
+        return receipt;
+      } catch (error) {
+        setState(s => ({ ...s, isPending: false, isConfirming: false, error: error as Error }));
+        throw error;
+      }
+    },
+    [walletClient]
+  );
+
+  return { execute, ...state };
+}
+```
+
+## Error Handling Example
+
+Comprehensive error handling:
+
+```typescript
+import { RelayerError, RelayerErrorCode } from '@mantle-relayer/sdk';
+
+async function sendWithErrorHandling(request: MetaTransactionRequest) {
+  try {
+    const signature = await client.signMetaTransaction(walletClient, request);
+    const txHash = await client.sendTransaction(request, signature);
+    return await client.waitForTransaction(txHash);
+  } catch (error) {
+    if (error instanceof RelayerError) {
+      switch (error.code) {
+        case RelayerErrorCode.CONTRACT_NOT_WHITELISTED:
+          // Handle: contract needs to be added to paymaster whitelist
+          showError('This action is not supported yet');
+          break;
+          
+        case RelayerErrorCode.PAYMASTER_INSUFFICIENT_BALANCE:
+          // Handle: paymaster needs more funds
+          showError('Service temporarily unavailable');
+          notifyAdmin('Paymaster needs funding');
+          break;
+          
+        case RelayerErrorCode.SPENDING_LIMIT_EXCEEDED:
+          // Handle: user hit their limit
+          showError('Daily limit reached. Try again tomorrow.');
+          break;
+          
+        case RelayerErrorCode.INVALID_SIGNATURE:
+          // Handle: signature verification failed
+          showError('Please try signing again');
+          break;
+          
+        default:
+          showError('Transaction failed. Please try again.');
+      }
+    } else if (error.message?.includes('User rejected')) {
+      // User cancelled in wallet
+      showInfo('Transaction cancelled');
+    } else {
+      // Unknown error
+      showError('Something went wrong');
+      console.error(error);
+    }
+    
+    throw error;
+  }
+}
+```
+
+## Testing Example
+
+Mock the client for testing:
+
+```typescript
+import { vi, describe, it, expect } from 'vitest';
+import { RelayerClient } from '@mantle-relayer/sdk';
+
+vi.mock('@mantle-relayer/sdk', () => ({
+  RelayerClient: vi.fn().mockImplementation(() => ({
+    signMetaTransaction: vi.fn().mockResolvedValue('0xsignature'),
+    sendTransaction: vi.fn().mockResolvedValue('0xtxhash'),
+    waitForTransaction: vi.fn().mockResolvedValue({
+      status: 'success',
+      hash: '0xtxhash',
+    }),
+  })),
+}));
+
+describe('Gasless Transaction', () => {
+  it('should send transaction successfully', async () => {
+    const client = new RelayerClient({
+      rpcUrl: 'http://localhost',
+      relayerUrl: 'http://localhost',
+      paymasterAddress: '0x123',
+    });
+
+    const txHash = await client.sendTransaction(
+      { from: '0x1', to: '0x2', data: '0x' },
+      '0xsig'
+    );
+
+    expect(txHash).toBe('0xtxhash');
+  });
+});
+```

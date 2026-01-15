@@ -1,0 +1,353 @@
+# Paymaster
+
+The Paymaster contract holds funds and sponsors gas for meta-transactions targeting whitelisted contracts.
+
+## Overview
+
+Each Paymaster is owned by a single account and can be configured with:
+- Whitelisted contracts (which contracts can be sponsored)
+- Spending limits (daily/monthly caps)
+- Pause functionality (emergency stop)
+
+## Interface
+
+```solidity
+interface IPaymaster {
+    // Balance Management
+    function deposit() external payable;
+    function withdraw(uint256 amount, address recipient) external;
+    function getBalance() external view returns (uint256);
+
+    // Whitelist Management
+    function addWhitelistedContract(address contractAddr) external;
+    function addWhitelistedContracts(address[] calldata contracts) external;
+    function removeWhitelistedContract(address contractAddr) external;
+    function isWhitelisted(address contractAddr) external view returns (bool);
+    function getWhitelistedContracts() external view returns (address[] memory);
+
+    // Spending Limits
+    function setSpendingLimits(uint256 dailyLimit, uint256 monthlyLimit) external;
+    function getSpendingLimits() external view returns (uint256 daily, uint256 monthly);
+    function getCurrentSpending() external view returns (uint256 daily, uint256 monthly);
+
+    // Analytics
+    function getAnalytics() external view returns (
+        uint256 totalTransactions,
+        uint256 totalGasSpent,
+        uint256 uniqueUsers
+    );
+
+    // Pause
+    function pause() external;
+    function unpause() external;
+    function paused() external view returns (bool);
+
+    // Ownership
+    function owner() external view returns (address);
+    function transferOwnership(address newOwner) external;
+}
+```
+
+## Balance Management
+
+### deposit
+
+Add MNT to the paymaster.
+
+```solidity
+function deposit() external payable
+```
+
+**Example:**
+
+```typescript
+// Send 10 MNT to paymaster
+await walletClient.sendTransaction({
+  to: paymasterAddress,
+  value: parseEther('10'),
+});
+
+// Or call deposit explicitly
+await walletClient.writeContract({
+  address: paymasterAddress,
+  abi: paymasterAbi,
+  functionName: 'deposit',
+  value: parseEther('10'),
+});
+```
+
+---
+
+### withdraw
+
+Withdraw MNT from the paymaster. Only callable by owner.
+
+```solidity
+function withdraw(uint256 amount, address recipient) external
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `amount` | `uint256` | Amount to withdraw in wei |
+| `recipient` | `address` | Address to receive funds |
+
+---
+
+### getBalance
+
+Returns current paymaster balance.
+
+```solidity
+function getBalance() external view returns (uint256)
+```
+
+## Whitelist Management
+
+### addWhitelistedContract
+
+Add a contract to the whitelist.
+
+```solidity
+function addWhitelistedContract(address contractAddr) external
+```
+
+**Example:**
+
+```typescript
+await walletClient.writeContract({
+  address: paymasterAddress,
+  abi: paymasterAbi,
+  functionName: 'addWhitelistedContract',
+  args: [nftContractAddress],
+});
+```
+
+---
+
+### addWhitelistedContracts
+
+Add multiple contracts in one transaction.
+
+```solidity
+function addWhitelistedContracts(address[] calldata contracts) external
+```
+
+---
+
+### removeWhitelistedContract
+
+Remove a contract from the whitelist.
+
+```solidity
+function removeWhitelistedContract(address contractAddr) external
+```
+
+---
+
+### isWhitelisted
+
+Check if a contract is whitelisted.
+
+```solidity
+function isWhitelisted(address contractAddr) external view returns (bool)
+```
+
+---
+
+### getWhitelistedContracts
+
+Get all whitelisted contracts.
+
+```solidity
+function getWhitelistedContracts() external view returns (address[] memory)
+```
+
+## Spending Limits
+
+### setSpendingLimits
+
+Configure daily and monthly spending limits.
+
+```solidity
+function setSpendingLimits(uint256 dailyLimit, uint256 monthlyLimit) external
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `dailyLimit` | `uint256` | Max daily spend in wei (0 = unlimited) |
+| `monthlyLimit` | `uint256` | Max monthly spend in wei (0 = unlimited) |
+
+**Example:**
+
+```typescript
+await walletClient.writeContract({
+  address: paymasterAddress,
+  abi: paymasterAbi,
+  functionName: 'setSpendingLimits',
+  args: [
+    parseEther('10'),   // 10 MNT daily
+    parseEther('100'),  // 100 MNT monthly
+  ],
+});
+```
+
+---
+
+### getSpendingLimits
+
+Get current limit configuration.
+
+```solidity
+function getSpendingLimits() external view returns (uint256 daily, uint256 monthly)
+```
+
+---
+
+### getCurrentSpending
+
+Get current spending against limits.
+
+```solidity
+function getCurrentSpending() external view returns (uint256 daily, uint256 monthly)
+```
+
+## Analytics
+
+### getAnalytics
+
+Get paymaster usage statistics.
+
+```solidity
+function getAnalytics() external view returns (
+    uint256 totalTransactions,
+    uint256 totalGasSpent,
+    uint256 uniqueUsers
+)
+```
+
+**Example:**
+
+```typescript
+const [totalTx, totalGas, users] = await publicClient.readContract({
+  address: paymasterAddress,
+  abi: paymasterAbi,
+  functionName: 'getAnalytics',
+});
+
+console.log(`Total transactions: ${totalTx}`);
+console.log(`Total gas spent: ${formatEther(totalGas)} MNT`);
+console.log(`Unique users: ${users}`);
+```
+
+## Pause Functionality
+
+### pause
+
+Emergency pause the paymaster. No new transactions will be processed.
+
+```solidity
+function pause() external
+```
+
+---
+
+### unpause
+
+Resume normal operation.
+
+```solidity
+function unpause() external
+```
+
+---
+
+### paused
+
+Check if paymaster is paused.
+
+```solidity
+function paused() external view returns (bool)
+```
+
+## Events
+
+```solidity
+event Deposited(address indexed sender, uint256 amount);
+event Withdrawn(address indexed recipient, uint256 amount);
+event ContractWhitelisted(address indexed contractAddr);
+event ContractRemovedFromWhitelist(address indexed contractAddr);
+event SpendingLimitsUpdated(uint256 dailyLimit, uint256 monthlyLimit);
+event GasSponsored(
+    address indexed user,
+    address indexed target,
+    uint256 gasUsed,
+    uint256 gasCost
+);
+event Paused(address account);
+event Unpaused(address account);
+```
+
+## Error Codes
+
+| Error | Description |
+|-------|-------------|
+| `NotOwner()` | Caller is not the owner |
+| `InsufficientBalance()` | Not enough MNT for withdrawal |
+| `ContractNotWhitelisted()` | Target not in whitelist |
+| `SpendingLimitExceeded()` | Daily/monthly limit reached |
+| `Paused()` | Paymaster is paused |
+| `ZeroAddress()` | Invalid zero address |
+| `AlreadyWhitelisted()` | Contract already in whitelist |
+
+## Full Example
+
+```typescript
+import { createWalletClient, createPublicClient, custom, http, parseEther, formatEther } from 'viem';
+import { mantleSepolia } from 'viem/chains';
+
+const publicClient = createPublicClient({
+  chain: mantleSepolia,
+  transport: http(),
+});
+
+const walletClient = createWalletClient({
+  chain: mantleSepolia,
+  transport: custom(window.ethereum),
+});
+
+const paymasterAddress = '0xYourPaymaster';
+
+// Check balance
+const balance = await publicClient.readContract({
+  address: paymasterAddress,
+  abi: paymasterAbi,
+  functionName: 'getBalance',
+});
+console.log('Balance:', formatEther(balance), 'MNT');
+
+// Add to whitelist
+await walletClient.writeContract({
+  address: paymasterAddress,
+  abi: paymasterAbi,
+  functionName: 'addWhitelistedContract',
+  args: ['0xNftContract'],
+});
+
+// Set limits
+await walletClient.writeContract({
+  address: paymasterAddress,
+  abi: paymasterAbi,
+  functionName: 'setSpendingLimits',
+  args: [parseEther('5'), parseEther('50')],
+});
+
+// Fund
+await walletClient.sendTransaction({
+  to: paymasterAddress,
+  value: parseEther('10'),
+});
+```

@@ -1,0 +1,87 @@
+# Getting Started
+
+Welcome to the Mantle Gasless Relayer documentation. This guide will help you understand how the relayer works and get you up and running quickly.
+
+## What is Mantle Gasless Relayer?
+
+Mantle Gasless Relayer is a meta-transaction infrastructure that allows dApp developers to sponsor gas fees for their users on the Mantle Network. Instead of requiring users to hold MNT tokens to pay for transaction fees, you can pay on their behalf.
+
+<Callout type="info">
+  Gasless transactions improve user experience by removing the friction of acquiring gas tokens before using your dApp.
+</Callout>
+
+## Key Concepts
+
+### Paymaster
+
+A Paymaster is a smart contract that you deploy and fund with MNT. When users interact with your dApp, the paymaster pays the gas fees on their behalf.
+
+### Relayer
+
+The Relayer is an off-chain service that receives signed meta-transactions from users and submits them to the blockchain. It handles gas estimation, nonce management, and transaction monitoring.
+
+### Meta-Transactions
+
+Meta-transactions are signed messages (following EIP-712) that authorize an action without requiring the signer to pay gas. The relayer submits these to the blockchain and gets reimbursed from the paymaster.
+
+## Architecture Overview
+
+```
+┌──────────────┐    EIP-712 Signature    ┌──────────────┐
+│              │ ────────────────────►   │              │
+│   User dApp  │                         │   Relayer    │
+│   (Frontend) │ ◄────────────────────   │   Backend    │
+│              │    Transaction Hash     │              │
+└──────────────┘                         └──────┬───────┘
+                                                │
+                                                │ Submit Tx
+                                                ▼
+                                         ┌──────────────┐
+                                         │   Mantle     │
+                                         │   Network    │
+                                         │              │
+                                         │  ┌────────┐  │
+                                         │  │Paymaster│ │
+                                         │  └────────┘  │
+                                         └──────────────┘
+```
+
+## Quick Links
+
+<DocCardGrid>
+  <DocCard
+    title="Quick Start"
+    description="Set up your first paymaster in under 5 minutes."
+    href="/docs/getting-started/quickstart"
+  />
+  <DocCard
+    title="Installation"
+    description="Install the SDK and configure your project."
+    href="/docs/getting-started/installation"
+  />
+</DocCardGrid>
+
+## System Requirements
+
+Before you begin, ensure you have:
+
+- **Node.js 18+** - For running the SDK
+- **A Mantle Wallet** - With MNT tokens for funding your paymaster
+- **A Web3 Wallet** - MetaMask, WalletConnect, or similar
+
+## Network Support
+
+Currently, Mantle Gasless Relayer supports:
+
+| Network | Chain ID | Status |
+|---------|----------|--------|
+| Mantle Sepolia (Testnet) | 5003 | ✅ Live |
+| Mantle Mainnet | 5000 | 🔜 Coming Soon |
+
+<Callout type="tip">
+  Start on testnet to familiarize yourself with the system before deploying to mainnet.
+</Callout>
+
+## Next Steps
+
+Ready to get started? Head to the [Quick Start](/docs/getting-started/quickstart) guide to create your first paymaster.

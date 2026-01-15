@@ -1,0 +1,230 @@
+# RelayerClient
+
+The main client for signing and sending gasless transactions.
+
+## Constructor
+
+```typescript
+import { RelayerClient } from '@mantle-relayer/sdk';
+
+const client = new RelayerClient({
+  rpcUrl: 'https://rpc.sepolia.mantle.xyz',
+  relayerUrl: 'https://mantle-relayer-production.up.railway.app',
+  paymasterAddress: '0xYourPaymasterAddress',
+});
+```
+
+### Options
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `rpcUrl` | `string` | Yes | Mantle RPC endpoint URL |
+| `relayerUrl` | `string` | Yes | Relayer backend URL |
+| `paymasterAddress` | `string` | Yes | Your paymaster contract address |
+| `timeout` | `number` | No | Request timeout in ms (default: 30000) |
+
+## Methods
+
+### signMetaTransaction
+
+Signs a meta-transaction request using EIP-712.
+
+```typescript
+const signature = await client.signMetaTransaction(walletClient, request);
+```
+
+#### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `walletClient` | `WalletClient` | viem WalletClient instance |
+| `request` | `MetaTransactionRequest` | Transaction details |
+
+#### MetaTransactionRequest
+
+```typescript
+interface MetaTransactionRequest {
+  from: `0x${string}`;     // Signer address
+  to: `0x${string}`;       // Target contract
+  data: `0x${string}`;     // Encoded function call
+  value?: bigint;          // Optional MNT value (default: 0n)
+  nonce?: bigint;          // Optional nonce (auto-fetched if not provided)
+  deadline?: bigint;       // Optional deadline timestamp
+}
+```
+
+#### Returns
+
+`Promise<string>` - The EIP-712 signature
+
+---
+
+### sendTransaction
+
+Sends a signed meta-transaction to the relayer.
+
+```typescript
+const txHash = await client.sendTransaction(request, signature);
+```
+
+#### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `request` | `MetaTransactionRequest` | Transaction details |
+| `signature` | `string` | EIP-712 signature from `signMetaTransaction` |
+
+#### Returns
+
+`Promise<string>` - Transaction hash
+
+---
+
+### waitForTransaction
+
+Waits for a transaction to be confirmed.
+
+```typescript
+const receipt = await client.waitForTransaction(txHash, {
+  timeout: 60000,        // Optional: max wait time
+  confirmations: 1,      // Optional: required confirmations
+});
+```
+
+#### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `txHash` | `string` | Transaction hash to wait for |
+| `options` | `WaitOptions` | Optional configuration |
+
+#### WaitOptions
+
+```typescript
+interface WaitOptions {
+  timeout?: number;       // Max wait time in ms (default: 60000)
+  confirmations?: number; // Required confirmations (default: 1)
+  pollingInterval?: number; // Polling interval in ms (default: 1000)
+}
+```
+
+#### Returns
+
+```typescript
+interface TransactionReceipt {
+  status: 'success' | 'failed';
+  hash: string;
+  blockNumber: bigint;
+  gasUsed: bigint;
+  error?: string;
+}
+```
+
+---
+
+### healthCheck
+
+Checks if the relayer service is healthy.
+
+```typescript
+const health = await client.healthCheck();
+console.log(health.status); // 'ok' | 'degraded' | 'down'
+```
+
+#### Returns
+
+```typescript
+interface HealthCheckResult {
+  status: 'ok' | 'degraded' | 'down';
+  latency: number;
+  version: string;
+}
+```
+
+---
+
+### getNonce
+
+Gets the current nonce for an address.
+
+```typescript
+const nonce = await client.getNonce(address);
+```
+
+#### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `address` | `string` | The address to get nonce for |
+
+#### Returns
+
+`Promise<bigint>` - Current nonce
+
+## Full Example
+
+```typescript
+import { RelayerClient } from '@mantle-relayer/sdk';
+import { createWalletClient, custom, encodeFunctionData } from 'viem';
+import { mantleSepolia } from 'viem/chains';
+
+async function sendGaslessTransaction() {
+  // Initialize client
+  const client = new RelayerClient({
+    rpcUrl: 'https://rpc.sepolia.mantle.xyz',
+    relayerUrl: 'https://mantle-relayer-production.up.railway.app',
+    paymasterAddress: '0xYourPaymaster',
+  });
+
+  // Check health
+  const health = await client.healthCheck();
+  if (health.status !== 'ok') {
+    throw new Error('Relayer is not available');
+  }
+
+  // Connect wallet
+  const walletClient = createWalletClient({
+    chain: mantleSepolia,
+    transport: custom(window.ethereum),
+  });
+
+  const [address] = await walletClient.getAddresses();
+
+  // Build request
+  const request = {
+    from: address,
+    to: '0xTargetContract' as `0x${string}`,
+    data: encodeFunctionData({
+      abi: contractAbi,
+      functionName: 'someFunction',
+      args: [arg1, arg2],
+    }),
+  };
+
+  // Sign and send
+  const signature = await client.signMetaTransaction(walletClient, request);
+  const txHash = await client.sendTransaction(request, signature);
+
+  // Wait for confirmation
+  const receipt = await client.waitForTransaction(txHash);
+
+  return receipt;
+}
+```
+
+## Error Handling
+
+```typescript
+import { RelayerError, RelayerErrorCode } from '@mantle-relayer/sdk';
+
+try {
+  await client.sendTransaction(request, signature);
+} catch (error) {
+  if (error instanceof RelayerError) {
+    console.log('Code:', error.code);
+    console.log('Message:', error.message);
+  }
+}
+```
+
+See [Error Codes](/docs/api-reference/errors) for a complete list.

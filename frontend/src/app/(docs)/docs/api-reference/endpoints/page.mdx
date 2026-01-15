@@ -1,0 +1,305 @@
+# API Endpoints
+
+Complete reference for all Mantle Relayer API endpoints.
+
+## Health
+
+### GET /api/health
+
+Check if the relayer service is healthy.
+
+<ApiEndpoint method="GET" path="/api/health" description="Returns service health status and version information." />
+
+**Response**
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "ok",
+    "version": "1.0.0",
+    "uptime": 86400,
+    "blockchain": {
+      "connected": true,
+      "chainId": 5003,
+      "blockNumber": 12345678
+    }
+  }
+}
+```
+
+---
+
+## Relay
+
+### POST /api/relay
+
+Submit a signed meta-transaction for relay.
+
+<ApiEndpoint method="POST" path="/api/relay" description="Submits a gasless transaction to be executed by the relayer." />
+
+**Request Body**
+
+```json
+{
+  "request": {
+    "from": "0xUserAddress...",
+    "to": "0xTargetContract...",
+    "data": "0xEncodedFunctionCall...",
+    "value": "0",
+    "nonce": "42",
+    "deadline": "1700000000"
+  },
+  "signature": "0xEIP712Signature...",
+  "paymasterAddress": "0xPaymasterAddress..."
+}
+```
+
+**Parameters**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `request.from` | `string` | Yes | Signer's address |
+| `request.to` | `string` | Yes | Target contract address |
+| `request.data` | `string` | Yes | Encoded function call |
+| `request.value` | `string` | No | MNT value in wei (default: "0") |
+| `request.nonce` | `string` | Yes | User's nonce for replay protection |
+| `request.deadline` | `string` | No | Unix timestamp deadline |
+| `signature` | `string` | Yes | EIP-712 signature |
+| `paymasterAddress` | `string` | Yes | Paymaster to use for gas |
+
+**Success Response**
+
+```json
+{
+  "success": true,
+  "data": {
+    "transactionHash": "0x...",
+    "status": "pending"
+  }
+}
+```
+
+**Error Response**
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "CONTRACT_NOT_WHITELISTED",
+    "message": "Target contract is not whitelisted in paymaster"
+  }
+}
+```
+
+---
+
+## Transactions
+
+### GET /api/transactions
+
+List transactions for a paymaster or user.
+
+<ApiEndpoint method="GET" path="/api/transactions" description="Returns paginated list of transactions." />
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `paymasterId` | `string` | No | Filter by paymaster address |
+| `userAddress` | `string` | No | Filter by user address |
+| `status` | `string` | No | Filter by status: `pending`, `success`, `failed` |
+| `page` | `number` | No | Page number (default: 1) |
+| `limit` | `number` | No | Items per page (default: 25, max: 100) |
+
+**Response**
+
+```json
+{
+  "success": true,
+  "data": {
+    "transactions": [
+      {
+        "id": "tx_123",
+        "hash": "0x...",
+        "paymasterId": "0x...",
+        "userAddress": "0x...",
+        "targetContract": "0x...",
+        "functionName": "transfer",
+        "status": "success",
+        "gasUsed": "45000",
+        "gasCost": "0.00045",
+        "createdAt": "2024-01-15T12:00:00Z",
+        "confirmedAt": "2024-01-15T12:00:15Z"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 25,
+      "total": 150,
+      "totalPages": 6
+    }
+  }
+}
+```
+
+### GET /api/transactions/:hash
+
+Get details of a specific transaction.
+
+<ApiEndpoint method="GET" path="/api/transactions/:hash" description="Returns detailed transaction information." />
+
+**Response**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "tx_123",
+    "hash": "0x...",
+    "paymasterId": "0x...",
+    "userAddress": "0x...",
+    "targetContract": "0x...",
+    "targetContractName": "MyNFT",
+    "functionName": "mint",
+    "functionSelector": "0x6a627842",
+    "status": "success",
+    "blockNumber": 12345678,
+    "gasLimit": "100000",
+    "gasUsed": "45000",
+    "gasPrice": "10000000",
+    "gasCost": "0.00045",
+    "createdAt": "2024-01-15T12:00:00Z",
+    "confirmedAt": "2024-01-15T12:00:15Z"
+  }
+}
+```
+
+---
+
+## Paymasters
+
+### GET /api/paymasters
+
+List paymasters owned by the authenticated user.
+
+<ApiEndpoint method="GET" path="/api/paymasters" description="Returns list of user's paymasters with stats." />
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `address` | `string` | Yes | Owner wallet address |
+
+**Response**
+
+```json
+{
+  "success": true,
+  "data": {
+    "paymasters": [
+      {
+        "address": "0x...",
+        "balance": "10.5",
+        "status": "active",
+        "whitelistedContracts": 5,
+        "totalTransactions": 1250,
+        "totalGasSpent": "12.5",
+        "createdAt": "2024-01-01T00:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+### GET /api/paymasters/:address/stats
+
+Get detailed statistics for a specific paymaster.
+
+<ApiEndpoint method="GET" path="/api/paymasters/:address/stats" description="Returns paymaster analytics and usage stats." />
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `range` | `string` | No | Time range: `7d`, `30d`, `90d` (default: `30d`) |
+
+**Response**
+
+```json
+{
+  "success": true,
+  "data": {
+    "address": "0x...",
+    "balance": "10.5",
+    "stats": {
+      "totalTransactions": 1250,
+      "successfulTransactions": 1230,
+      "failedTransactions": 20,
+      "uniqueUsers": 450,
+      "totalGasSpent": "12.5",
+      "avgGasPerTx": "0.01"
+    },
+    "trends": {
+      "transactions": 15.5,
+      "gasSpent": -5.2,
+      "users": 22.1
+    }
+  }
+}
+```
+
+---
+
+## Nonce
+
+### GET /api/nonce/:address
+
+Get the current nonce for an address.
+
+<ApiEndpoint method="GET" path="/api/nonce/:address" description="Returns the next valid nonce for signing." />
+
+**Response**
+
+```json
+{
+  "success": true,
+  "data": {
+    "address": "0x...",
+    "nonce": "42"
+  }
+}
+```
+
+---
+
+## Dashboard
+
+### GET /api/dashboard/stats
+
+Get aggregated dashboard statistics.
+
+<ApiEndpoint method="GET" path="/api/dashboard/stats" description="Returns overview stats for the dashboard." />
+
+**Query Parameters**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `address` | `string` | Yes | Owner wallet address |
+
+**Response**
+
+```json
+{
+  "success": true,
+  "data": {
+    "totalBalance": "25.5",
+    "activePaymasters": 3,
+    "totalPaymasters": 4,
+    "totalTransactions": 5000,
+    "transactionsTrend": 12.5,
+    "monthlySpending": "8.2",
+    "monthlySpendingTrend": -3.1
+  }
+}
+```

@@ -1,0 +1,109 @@
+# API Reference
+
+RESTful API documentation for the Mantle Gasless Relayer backend.
+
+## Base URL
+
+```
+Production: https://mantle-relayer-production.up.railway.app
+```
+
+## Authentication
+
+Most endpoints require authentication via a signed message or API key.
+
+```bash
+# Example with Bearer token
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+  https://mantle-relayer-production.up.railway.app/api/health
+```
+
+<Callout type="note">
+  For client-side applications, use the SDK which handles authentication automatically through EIP-712 signatures.
+</Callout>
+
+## Endpoints Overview
+
+| Category | Endpoint | Description |
+|----------|----------|-------------|
+| Health | `GET /api/health` | Service health check |
+| Relay | `POST /api/relay` | Submit meta-transaction |
+| Transactions | `GET /api/transactions` | List transactions |
+| Paymasters | `GET /api/paymasters` | List user's paymasters |
+
+## Quick Links
+
+<DocCardGrid>
+  <DocCard
+    title="Endpoints"
+    description="Complete endpoint reference with examples."
+    href="/docs/api-reference/endpoints"
+  />
+  <DocCard
+    title="Error Codes"
+    description="Error handling and response codes."
+    href="/docs/api-reference/errors"
+  />
+</DocCardGrid>
+
+## Response Format
+
+All API responses follow this format:
+
+### Success Response
+
+```json
+{
+  "success": true,
+  "data": {
+    // Response data
+  }
+}
+```
+
+### Error Response
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human readable message"
+  }
+}
+```
+
+## Rate Limits
+
+| Endpoint | Rate Limit |
+|----------|------------|
+| `POST /api/relay` | 100 requests/minute |
+| `GET /api/*` | 300 requests/minute |
+
+Rate limit headers are included in responses:
+
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1609459200
+```
+
+## Webhooks
+
+Configure webhooks to receive transaction status updates:
+
+```typescript
+// Webhook payload
+{
+  "event": "transaction.confirmed",
+  "data": {
+    "hash": "0x...",
+    "status": "success",
+    "paymasterId": "0x...",
+    "gasUsed": "21000"
+  },
+  "timestamp": "2024-01-15T12:00:00Z"
+}
+```
+
+Contact us to set up webhook endpoints for your application.

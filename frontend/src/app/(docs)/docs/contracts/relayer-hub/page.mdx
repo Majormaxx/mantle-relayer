@@ -1,0 +1,223 @@
+# RelayerHub
+
+The RelayerHub contract is the main entry point for executing meta-transactions on behalf of users.
+
+## Overview
+
+The RelayerHub receives signed meta-transactions from the relayer backend, verifies signatures, and executes transactions while charging gas costs to the specified paymaster.
+
+## Contract Address
+
+| Network | Address |
+|---------|---------|
+| Mantle Sepolia | `0xA5dd225Beb2Ec0009Fe143eb0B9309Ba07d23737` |
+
+## Interface
+
+```solidity
+interface IRelayerHub {
+    struct MetaTransaction {
+        address from;
+        address to;
+        uint256 value;
+        bytes data;
+        uint256 nonce;
+        uint256 deadline;
+    }
+
+    function execute(
+        MetaTransaction calldata request,
+        bytes calldata signature,
+        address paymaster
+    ) external returns (bool success, bytes memory result);
+
+    function getNonce(address account) external view returns (uint256);
+
+    function verify(
+        MetaTransaction calldata request,
+        bytes calldata signature
+    ) external view returns (bool);
+
+    function DOMAIN_SEPARATOR() external view returns (bytes32);
+}
+```
+
+## Functions
+
+### execute
+
+Executes a meta-transaction on behalf of a user.
+
+```solidity
+function execute(
+    MetaTransaction calldata request,
+    bytes calldata signature,
+    address paymaster
+) external returns (bool success, bytes memory result)
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `request` | `MetaTransaction` | The transaction request details |
+| `signature` | `bytes` | EIP-712 signature from the user |
+| `paymaster` | `address` | Paymaster to charge for gas |
+
+**Returns:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `success` | `bool` | Whether execution succeeded |
+| `result` | `bytes` | Return data from the call |
+
+**Requirements:**
+- Signature must be valid
+- Nonce must match user's current nonce
+- Deadline must not have passed
+- Target contract must be whitelisted in paymaster
+- Paymaster must have sufficient balance
+
+**Events:**
+
+```solidity
+event MetaTransactionExecuted(
+    address indexed from,
+    address indexed to,
+    address indexed paymaster,
+    bytes32 txHash,
+    bool success,
+    uint256 gasUsed
+);
+```
+
+---
+
+### getNonce
+
+Returns the current nonce for an account.
+
+```solidity
+function getNonce(address account) external view returns (uint256)
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `account` | `address` | The account to query |
+
+**Returns:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `nonce` | `uint256` | Current nonce value |
+
+---
+
+### verify
+
+Verifies a signature without executing.
+
+```solidity
+function verify(
+    MetaTransaction calldata request,
+    bytes calldata signature
+) external view returns (bool)
+```
+
+**Parameters:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `request` | `MetaTransaction` | The transaction request |
+| `signature` | `bytes` | EIP-712 signature |
+
+**Returns:**
+
+| Name | Type | Description |
+|------|------|-------------|
+| `valid` | `bool` | Whether signature is valid |
+
+---
+
+### DOMAIN_SEPARATOR
+
+Returns the EIP-712 domain separator.
+
+```solidity
+function DOMAIN_SEPARATOR() external view returns (bytes32)
+```
+
+## EIP-712 Domain
+
+```javascript
+{
+  name: 'Mantle Gasless Relayer',
+  version: '1',
+  chainId: 5003,
+  verifyingContract: '0xA5dd225Beb2Ec0009Fe143eb0B9309Ba07d23737'
+}
+```
+
+## Type Hash
+
+```solidity
+bytes32 constant META_TRANSACTION_TYPEHASH = keccak256(
+    "MetaTransaction(address from,address to,uint256 value,bytes data,uint256 nonce,uint256 deadline)"
+);
+```
+
+## Usage Example
+
+```solidity
+// In your contract or script
+IRelayerHub hub = IRelayerHub(0xA5dd225Beb2Ec0009Fe143eb0B9309Ba07d23737);
+
+// Check nonce before signing
+uint256 nonce = hub.getNonce(userAddress);
+
+// Verify signature (optional, for validation)
+bool isValid = hub.verify(request, signature);
+
+// Execute (called by relayer)
+(bool success, bytes memory result) = hub.execute(
+    request,
+    signature,
+    paymasterAddress
+);
+```
+
+## Events
+
+### MetaTransactionExecuted
+
+Emitted when a meta-transaction is executed.
+
+```solidity
+event MetaTransactionExecuted(
+    address indexed from,
+    address indexed to,
+    address indexed paymaster,
+    bytes32 txHash,
+    bool success,
+    uint256 gasUsed
+);
+```
+
+### NonceUsed
+
+Emitted when a nonce is consumed.
+
+```solidity
+event NonceUsed(address indexed account, uint256 nonce);
+```
+
+## Error Codes
+
+| Error | Description |
+|-------|-------------|
+| `InvalidSignature()` | Signature verification failed |
+| `ExpiredDeadline()` | Transaction deadline passed |
+| `InvalidNonce()` | Nonce doesn't match expected |
+| `ExecutionFailed(bytes)` | Target call reverted |

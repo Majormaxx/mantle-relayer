@@ -1,0 +1,175 @@
+# Fund Paymaster
+
+Learn how to add MNT to your paymaster and manage your balance effectively.
+
+## Overview
+
+Your paymaster needs MNT to pay for gas on behalf of users. When users send gasless transactions, the gas cost is deducted from your paymaster's balance.
+
+## Funding via Dashboard
+
+1. Go to [Dashboard → Paymasters](/paymasters)
+2. Click on your paymaster
+3. Click the **Fund** button
+4. Enter the amount of MNT to deposit
+5. Confirm the transaction
+
+## Funding via SDK
+
+```typescript
+import { parseEther } from 'viem';
+
+// Fund with 10 MNT
+const txHash = await paymasterClient.fund({
+  walletClient,
+  paymasterAddress: '0xYourPaymaster...',
+  amount: parseEther('10'),
+});
+
+await publicClient.waitForTransactionReceipt({ hash: txHash });
+console.log('Paymaster funded!');
+```
+
+## Funding via Smart Contract
+
+Send MNT directly to the paymaster contract:
+
+```typescript
+import { createWalletClient, custom, parseEther } from 'viem';
+
+const walletClient = createWalletClient({
+  chain: mantleSepolia,
+  transport: custom(window.ethereum),
+});
+
+// Simple ETH transfer to fund
+const txHash = await walletClient.sendTransaction({
+  to: paymasterAddress,
+  value: parseEther('10'),
+});
+```
+
+Or call the deposit function:
+
+```solidity
+interface IPaymaster {
+    function deposit() external payable;
+}
+
+// In Solidity
+paymaster.deposit{value: 10 ether}();
+```
+
+## Checking Balance
+
+### Dashboard
+
+Your paymaster balance is displayed on the paymaster card and detail page.
+
+### SDK
+
+```typescript
+const balance = await paymasterClient.getBalance(paymasterAddress);
+console.log('Balance:', formatEther(balance), 'MNT');
+```
+
+### Direct Contract Call
+
+```typescript
+import { createPublicClient, http, formatEther } from 'viem';
+
+const publicClient = createPublicClient({
+  chain: mantleSepolia,
+  transport: http(),
+});
+
+const balance = await publicClient.readContract({
+  address: paymasterAddress,
+  abi: paymasterAbi,
+  functionName: 'getBalance',
+});
+
+console.log('Balance:', formatEther(balance), 'MNT');
+```
+
+## Withdrawing Funds
+
+You can withdraw MNT from your paymaster at any time:
+
+### Via Dashboard
+
+1. Go to your paymaster detail page
+2. Click **Withdraw**
+3. Enter amount and confirm
+
+### Via SDK
+
+```typescript
+const txHash = await paymasterClient.withdraw({
+  walletClient,
+  paymasterAddress: '0xYourPaymaster...',
+  amount: parseEther('5'),
+  recipient: '0xYourWallet...', // Optional, defaults to owner
+});
+```
+
+<Callout type="warning">
+  Only the paymaster owner can withdraw funds. Make sure you're connected with the owner wallet.
+</Callout>
+
+## Balance Alerts
+
+The dashboard shows balance warnings:
+
+| Status | Condition | Action Needed |
+|--------|-----------|---------------|
+| 🟢 Healthy | Balance > 10 MNT | None |
+| 🟡 Low Balance | Balance 1-10 MNT | Consider funding |
+| 🔴 Critical | Balance < 1 MNT | Fund immediately |
+
+<Callout type="tip">
+  Set up monitoring to get notified when your balance is low. The dashboard will show warnings, but you can also query the balance programmatically.
+</Callout>
+
+## Estimating Costs
+
+To estimate how much MNT you need:
+
+```typescript
+// Get gas estimate for a transaction
+const gasEstimate = await publicClient.estimateGas({
+  to: targetContract,
+  data: encodedFunctionCall,
+});
+
+// Get current gas price
+const gasPrice = await publicClient.getGasPrice();
+
+// Calculate cost in MNT
+const costWei = gasEstimate * gasPrice;
+const costMnt = formatEther(costWei);
+
+console.log('Estimated cost:', costMnt, 'MNT');
+```
+
+## Best Practices
+
+1. **Keep a buffer** - Maintain at least 2x your expected daily usage
+2. **Monitor regularly** - Check balance daily during high-usage periods
+3. **Set up alerts** - Use the dashboard warnings or custom monitoring
+4. **Plan for gas spikes** - Network congestion can increase costs temporarily
+
+## Next Steps
+
+<DocCardGrid>
+  <DocCard
+    title="Whitelist Contracts"
+    description="Control which contracts your paymaster sponsors."
+    href="/docs/guides/whitelist-contracts"
+  />
+  <DocCard
+    title="SDK Integration"
+    description="Integrate gasless transactions into your dApp."
+    href="/docs/guides/sdk-integration"
+  />
+</DocCardGrid>
